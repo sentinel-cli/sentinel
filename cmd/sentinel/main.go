@@ -1,0 +1,78 @@
+// Package main implements the Sentinel CLI — a `cobra`-based command dispatcher
+// that exposes:
+//
+//	sentinel run     — the core pre-commit hook (default)
+//	sentinel install — install the hook into a git repository
+//	sentinel version — print build metadata
+//	sentinel scan    — scan an arbitrary file or directory (ad-hoc mode)
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/sentinel-cli/sentinel/cmd/sentinel/commands"
+	"github.com/sentinel-cli/sentinel/pkg/version"
+)
+
+func init() {
+	// Termux self-healing mechanism for SSL certificates.
+	// Go's crypto/x509 does not natively check Termux's custom certificate path.
+	// If we are in Termux (e.g. the path exists or PREFIX is set),
+	// and SSL_CERT_FILE is not already overridden by the user, inject it automatically.
+	termuxCertPath := "/data/data/com.termux/files/usr/etc/tls/cert.pem"
+	if os.Getenv("SSL_CERT_FILE") == "" {
+		if _, err := os.Stat(termuxCertPath); err == nil {
+			os.Setenv("SSL_CERT_FILE", termuxCertPath)
+		} else if strings.Contains(os.Getenv("PREFIX"), "com.termux") {
+			os.Setenv("SSL_CERT_FILE", termuxCertPath)
+		}
+	}
+}
+
+func main() {
+	root := &cobra.Command{
+		Use:   "sentinel",
+		Short: "Sentinel — enterprise-grade Git pre-commit secret detector",
+		Long: `Sentinel is an ultra-lightweight, modular Git pre-commit security hook
+that prevents accidental commits of API keys, SSH private keys, passwords,
+and other sensitive data using a three-tier detection pipeline:
+
+  Tier 1 (PATTERN)  — Aho-Corasick trie matching of 60+ known secret signatures
+  Tier 2 (ENTROPY)  — Shannon entropy analysis for unknown/novel secrets
+  Tier 3 (CONTEXT)  — Context-aware false-positive suppression
+
+
+Run 'sentinel install' to activate the hook in your current git repository.
+Run 'sentinel install --global' to activate it across all repositories.
+
+You can keep Sentinel up to date using 'sentinel update', and remove it with 'sentinel uninstall'.
+
+Developed by: Khaled Hani | Contact: https://t.me/A245F`,
+		Version:       version.Version,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+	}
+
+	root.SetVersionTemplate(`Sentinel version
+{{printf "sentinel %s" .Version}} (commit: ` + version.Commit + `, built: ` + version.Date + `)
+Developed by: Khaled Hani | Contact: https://t.me/A245F
+`)
+
+	root.AddCommand(
+		commands.NewRunCmd(),
+		commands.NewInstallCmd(),
+		commands.NewScanCmd(),
+		commands.NewUpdateCmd(),
+		commands.NewUninstallCmd(),
+		commands.NewVersionCmd(),
+	)
+
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "sentinel: error:", err)
+		os.Exit(1)
+	}
+}

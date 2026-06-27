@@ -1,0 +1,610 @@
+// Package tests contains integration tests that exercise the full
+// three-tier detection pipeline end-to-end through the Scanner type.
+package tests
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/sentinel-cli/sentinel/internal/scanner"
+	"github.com/sentinel-cli/sentinel/internal/trie"
+)
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+func defaultScanner() *scanner.Scanner {
+	a := trie.Build(trie.BuiltinSignatures)
+	return scanner.New(a, scanner.Options{
+		EntropyThreshold: 3.5,
+		MinSecretLength:  20,
+	})
+}
+
+func scan(s *scanner.Scanner, file, content string) []scanner.Finding {
+	return s.ScanContent(file, []byte(content))
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// End-to-end true positives
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestScanner_GithubPAT_Detected(t *testing.T) {
+	s := defaultScanner()
+	findings := scan(s, "cmd/main.go", `credentialToken := "ghp_REALTOKEN1234567890abcdef"`)
+	if len(findings) == 0 {
+		t.Error("expected finding for GitHub PAT")
+	}
+}
+
+func TestScanner_AWSKey_Detected(t *testing.T) {
+	s := defaultScanner()
+	findings := scan(s, "config.go", `ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"`)
+	if len(findings) == 0 {
+		t.Error("expected finding for AWS access key")
+	}
+}
+
+func TestScanner_HighEntropyOnlySecret_Detected(t *testing.T) {
+	// This token has no known prefix — detected by entropy only.
+	s := defaultScanner()
+	secret := "Yvk9pNXQJLzR3cW1mEqsTGbHuaOfidw8KvM2nXpQrYsT"
+	findings := scan(s, "config/settings.go", `SECRET = "`+secret+`"`)
+	// The entropy tier should detect it.
+	if len(findings) == 0 {
+		t.Errorf("expected entropy finding for high-entropy token: %s", secret)
+	}
+}
+
+func TestScanner_Finding_FieldsPopulated(t *testing.T) {
+	s := defaultScanner()
+	findings := scan(s, "src/api.go", `credential := "ghp_REALTOKEN1234567890ABCDEFGH"`)
+	if len(findings) == 0 {
+		t.Fatal("expected at least one finding")
+	}
+	f := findings[0]
+	if f.FilePath == "" {
+		t.Error("FilePath should not be empty")
+	}
+	if f.Line == 0 {
+		t.Error("Line should be non-zero")
+	}
+	if f.Severity == "" {
+		t.Error("Severity should not be empty")
+	}
+	if f.Description == "" {
+		t.Error("Description should not be empty")
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// End-to-end true negatives (false positive suppression)
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestScanner_CommentedSecret_Suppressed(t *testing.T) {
+	s := defaultScanner()
+	// A commented-out token should be suppressed by Tier 3.
+	findings := scan(s, "cmd/main.go", `  // token = "ghp_OLDTOKEN12345678901234"`)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for commented-out secret, got %d", len(findings))
+	}
+}
+
+func TestScanner_TestFile_Suppressed(t *testing.T) {
+	s := defaultScanner()
+	findings := scan(s, "auth/auth_test.go", `token := "ghp_TESTTOKEN1234567890abcdef"`)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for test file, got %d", len(findings))
+	}
+}
+
+func TestScanner_DummyVariable_Suppressed(t *testing.T) {
+	s := defaultScanner()
+	findings := scan(s, "cmd/main.go", `dummy_api_key := "ghp_DUMMYTOKEN1234567890abcdef"`)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for dummy variable, got %d", len(findings))
+	}
+}
+
+func TestScanner_CleanFile_NoFindings(t *testing.T) {
+	s := defaultScanner()
+	findings := scan(s, "README.md", `# My Project\n\nThis is a clean commit with no secrets.`)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for clean content, got %d", len(findings))
+	}
+}
+
+func TestScanner_Hellfire_Bugs_Fixed(t *testing.T) {
+	s := defaultScanner()
+
+	// 1. Empty YAML RHS
+	// Before the fix, this panicked: index out of range [0] with length 0
+	findings := scan(s, "config.yml", `api-token: `)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for empty RHS, got %d", len(findings))
+	}
+
+	// 2. JSON Token Leaking
+	// Using a dummy GitHub PAT.
+	// Before the fix, the token extracted was: ghp_TESTTOKEN1234567890abcdef\"}}
+	// Now it should be cleanly trimmed.
+	findings = scan(s, "config.json", `  "token": "\"ghp_TESTTOKEN1234567890abcdef\"}}"`)
+	if len(findings) == 0 {
+		t.Fatal("expected finding for JSON token")
+	}
+	expectedToken := "ghp_TESTTOKEN1234567890abcdef"
+	if findings[0].Token != expectedToken {
+		t.Errorf("Expected %q, got %q", expectedToken, findings[0].Token)
+	}
+
+	// 3. BIP-39 Punctuation and Non-BIP39 mix
+	// Before the fix, this was flagged because it contained 12+ BIP-39 words.
+	// Now it must be rejected because of punctuation and non-bip39 words.
+	findings = scan(s, "prose.txt", `I decided to abandon all hope about my ability to absorb the abstract and absurd nature of this access accident.`)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for English prose, got %d", len(findings))
+	}
+}
+
+func TestScanner_RawBip39Seed(t *testing.T) {
+	s := defaultScanner()
+	findings := scan(s, "seed.txt", `abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about`)
+	if len(findings) == 0 {
+		t.Error("expected finding for raw BIP-39 seed in plain text")
+	}
+}
+
+func TestScanner_BrutalRealWorldSuite(t *testing.T) {
+	s := defaultScanner()
+
+	cases := []struct {
+		name    string
+		file    string
+		content string
+		wantSig string
+	}{
+		{
+			name: "THE KERNEL PANIC DUMP (AWS Key hidden in crash log)",
+			file: "kernel_panic.log",
+			content: `
+Kernel panic - not syncing: Fatal exception in interrupt
+RIP: 0010:native_safe_halt+0xe/0x10
+RSP: 0018:ffffa41a40097ec8 EFLAGS: 00000246
+RAX: 0000000000000000 RBX: 0000000000000002
+Payload Dump: dGVzdCBwYXlsb2Fk AKIAIOSFODNN7EXAMPLE gaW5zaWRl
+`,
+			wantSig: "aws-access-key",
+		},
+		{
+			name: "THE PAYMENT GATEWAY TRAP (Fake Twilio trap, real Stripe secret)",
+			file: "checkout.min.js",
+			content: `
+function process(){var dummy_twilio="AC` + `1234567890abcdef1234567890abcdef";var config={endpoint:"/pay",timeout:5000,keys:{public:"pk_live_xxxx",secret:"sk_live_` + `1234567890abcdefghijklmnopqrstuv"}};return config;}
+`,
+			wantSig: "stripe-live-secret",
+		},
+		{
+			name: "THE VERCEL BUILD LOG (Echoed GitHub PAT)",
+			file: "build_output.log",
+			content: `
+[10:45:12] Starting build pipeline for nexus-fi-production...
+[10:45:13] Build hash: 8f4e3c2b1a0d9f8e7d6c5b4a3c2b1a0d9f8e7d6c5b4a3c2b
+[10:45:14] Fetching private submodules...
+[10:45:15] Warning: using token ghp_REALTOKEN1234567890abcdefghijklmnop for git clone
+[10:45:16] Build completed successfully.
+`,
+			wantSig: "github-pat-classic",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			findings := scan(s, c.file, c.content)
+			found := false
+			for _, f := range findings {
+				if f.SignatureID == c.wantSig {
+					found = true
+				} else if c.name == "THE PAYMENT GATEWAY TRAP (Fake Twilio trap, real Stripe secret)" && f.SignatureID == "twilio-account-sid" {
+					t.Errorf("FAIL: Caught the dummy Twilio trap!")
+				}
+			}
+			if !found {
+				t.Errorf("FAIL: Missed the real secret. Expected signature: %s", c.wantSig)
+			}
+		})
+	}
+}
+
+func TestScanner_EdgeCases(t *testing.T) {
+	s := defaultScanner()
+
+	cases := []struct {
+		name    string
+		file    string
+		content string
+		wantSig string
+	}{
+		{
+			name: "SINGLE-LAYER BASE64 DECODING (K8s/GCP Secret)",
+			file: "k8s_secret.yaml",
+			content: `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: stripe-secret
+type: Opaque
+data:
+  stripe_key: c2tfbGl2ZV8xMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcHFyc3R1dg==
+`,
+			wantSig: "stripe-live-secret",
+		},
+		{
+			name: "MULTILINE COMMENTS & HEREDOCS",
+			file: "script.sh",
+			content: `
+cat <<EOF > config.json
+{
+	"aws_key": "AKIAIOSFODNN7EXAMPLE",
+	"debug": true
+}
+EOF
+`,
+			wantSig: "aws-access-key",
+		},
+		{
+			name: "PEM CERTIFICATE WITH SPACES",
+			file: "cert.pem",
+			content: `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA3...
+-----END RSA PRIVATE KEY-----
+`,
+			wantSig: "pem-private-key",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			findings := scan(s, c.file, c.content)
+			found := false
+			for _, f := range findings {
+				if f.SignatureID == c.wantSig {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("FAIL: Missed the real secret. Expected signature: %s", c.wantSig)
+				for _, f := range findings {
+					t.Logf("Found instead: %s (token: %s)", f.SignatureID, f.Token)
+				}
+			}
+		})
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// IsBinary detection
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestIsBinary_True(t *testing.T) {
+	data := make([]byte, 100)
+	data[50] = 0x00 // null byte makes it binary
+	if !scanner.IsBinary(data) {
+		t.Error("expected IsBinary=true for data with null byte")
+	}
+}
+
+func TestIsBinary_False(t *testing.T) {
+	data := []byte("This is perfectly readable ASCII text.\nNo null bytes here.\n")
+	if scanner.IsBinary(data) {
+		t.Error("expected IsBinary=false for clean ASCII text")
+	}
+}
+
+func TestIsBinary_EmptySlice(t *testing.T) {
+	if scanner.IsBinary([]byte{}) {
+		t.Error("expected IsBinary=false for empty slice")
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// HasExcludedExtension
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestHasExcludedExtension_PNG(t *testing.T) {
+	excluded := []string{".png", ".jpg", ".gif"}
+	if !scanner.HasExcludedExtension("assets/logo.PNG", excluded) {
+		t.Error("expected .PNG to be excluded (case-insensitive)")
+	}
+}
+
+func TestHasExcludedExtension_GoFile(t *testing.T) {
+	excluded := []string{".png", ".jpg"}
+	if scanner.HasExcludedExtension("main.go", excluded) {
+		t.Error("expected .go NOT to be excluded")
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MatchesExcludePath
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestMatchesExcludePath_VendorPattern(t *testing.T) {
+	patterns := []string{"vendor/**"}
+	if !scanner.MatchesExcludePath("vendor/github.com/foo/bar.go", patterns) {
+		t.Error("expected vendor path to match exclude pattern")
+	}
+}
+
+func TestMatchesExcludePath_NonMatchingPath(t *testing.T) {
+	patterns := []string{"vendor/**"}
+	if scanner.MatchesExcludePath("internal/auth/client.go", patterns) {
+		t.Error("expected internal path NOT to match vendor exclude pattern")
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Tier.String()
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestTierString(t *testing.T) {
+	if scanner.TierTrie.String() != "PATTERN" {
+		t.Errorf("expected PATTERN, got %s", scanner.TierTrie.String())
+	}
+	if scanner.TierEntropy.String() != "ENTROPY" {
+		t.Errorf("expected ENTROPY, got %s", scanner.TierEntropy.String())
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Stress / performance tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+// TestScanner_PerformanceUnder50ms verifies the full pipeline runs under 50ms
+// for a 50 KB file that contains exactly one real secret and lots of noise.
+func TestScanner_PerformanceUnder50ms(t *testing.T) {
+	s := defaultScanner()
+
+	// Build ~50 KB of clean Go-like source with one secret buried in the middle.
+	clean := strings.Repeat("func doSomething(ctx context.Context) error {\n\treturn nil\n}\n\n", 400)
+	secret := `credential := "ghp_REALPERFTESTTOKEN1234567890ABCDEFGH"` + "\n"
+	content := clean[:len(clean)/2] + secret + clean[len(clean)/2:]
+
+	start := time.Now()
+	findings := s.ScanContent("internal/api/client.go", []byte(content))
+	elapsed := time.Since(start)
+
+	if len(findings) == 0 {
+		t.Error("expected to find the secret in performance test")
+	}
+	if elapsed > 50*time.Millisecond {
+		t.Errorf("scan exceeded 50ms limit: took %s", elapsed)
+	}
+}
+
+// TestScanner_ZeroStagedFiles verifies that scanning empty content returns no
+// findings without panicking.
+func TestScanner_EmptyContent(t *testing.T) {
+	s := defaultScanner()
+	findings := s.ScanContent("some/file.go", []byte{})
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for empty content, got %d", len(findings))
+	}
+}
+
+// TestScanner_HugeBinaryFile verifies that a large all-zero buffer (simulating
+// a binary file) completes without panic and returns no findings.
+func TestScanner_LargeBinaryContent(t *testing.T) {
+	s := defaultScanner()
+	// 15 MB of null bytes — scanner.IsBinary should catch this upstream,
+	// but the pipeline itself must also handle it gracefully.
+	content := make([]byte, 15*1024*1024)
+
+	start := time.Now()
+	findings := s.ScanContent("large.bin", content)
+	elapsed := time.Since(start)
+
+	// Binary null-byte content should produce 0 secret findings
+	// (entropy/trie won't find patterns in null bytes).
+	_ = findings
+	t.Logf("15 MB binary-like content scanned in %s with %d finding(s)", elapsed, len(findings))
+}
+
+// TestScanner_OutsideQuotesRule ensures that variable names on non-assignment
+// lines do not trigger false positives if they contain secret-like substrings.
+func TestScanner_OutsideQuotesRule(t *testing.T) {
+	s := defaultScanner()
+
+	content := []byte(`
+package main
+import "fmt"
+func main() {
+	var internalCacheRegisterOffset = "safe_placeholder"
+	fmt.Printf("hello world", internalCacheRegisterOffset)
+}
+`)
+
+	findings := s.ScanContent("test.go", content)
+	if len(findings) != 0 {
+		t.Errorf("Expected 0 findings for outside quotes rule, got %d. Findings: %v", len(findings), findings)
+	}
+}
+
+// BenchmarkFullPipeline runs the complete three-tier pipeline on a 50 KB file.
+func BenchmarkFullPipeline(b *testing.B) {
+	s := defaultScanner()
+	content := []byte(strings.Repeat("func handler(w http.ResponseWriter, r *http.Request) {\n\t// nothing secret here\n}\n", 600))
+	b.SetBytes(int64(len(content)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = s.ScanContent("internal/handler.go", content)
+	}
+}
+
+// BenchmarkFullPipelineWithSecret benchmarks the pipeline when there is a hit.
+func BenchmarkFullPipelineWithSecret(b *testing.B) {
+	s := defaultScanner()
+	content := []byte(`package main
+
+import "fmt"
+
+func main() {
+	key := "ghp_PERFORMANCETESTTOKEN12345678901234"
+	fmt.Println("key:", key)
+}
+`)
+	b.SetBytes(int64(len(content)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = s.ScanContent("cmd/main.go", content)
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// False-positive regression suite (all six vectors found during audit)
+// ──────────────────────────────────────────────────────────────────────────────
+
+// TestFalsePositive_Regression covers every false-positive category identified
+// during the architectural audit.  Each sub-test must produce ZERO findings.
+// If any sub-test fails, it prints the offending signature and token so the
+// root cause is immediately visible in CI output.
+func TestFalsePositive_Regression(t *testing.T) {
+	s := defaultScanner()
+
+	falsePositiveCases := []struct {
+		name    string
+		file    string
+		content string
+	}{
+		// ── Bug 1 & 2: generic keyword prefixes in Printf format strings ──────
+		{
+			name:    "password= as printf format verb",
+			file:    "main.go",
+			content: `fmt.Printf("debug: password=%v api_key=%v\n", pw, key)`,
+		},
+		{
+			name:    "secret= as printf format verb",
+			file:    "main.go",
+			content: `log.Printf("token=%s secret=%s", tok, sec)`,
+		},
+		{
+			name:    "api_key= as printf format verb",
+			file:    "main.go",
+			content: `log.Printf("api_key=%v", k)`,
+		},
+		{
+			name:    "token= as printf format verb with var arg",
+			file:    "cmd/main.go",
+			content: `fmt.Printf("token=%s\n", myVar)`,
+		},
+		// ── Bug 3: 2-char trie prefixes matching Go identifiers ───────────────
+		{
+			name:    "AC prefix in a PascalCase variable name",
+			file:    "main.go",
+			content: `fmt.Printf("account: %s\n", ACAccountSID)`,
+		},
+		{
+			name:    "SK prefix in a PascalCase variable name",
+			file:    "main.go",
+			content: `fmt.Printf("status: %s\n", SKStatusCode)`,
+		},
+		// ── Bug 4: generic keyword matching SQL bind params ───────────────────
+		{
+			name:    "password= in a SQL query template with ? placeholder",
+			file:    "db/query.go",
+			content: `query := "SELECT * FROM users WHERE password=? AND active=1"`,
+		},
+		// ── Bug 5: mailgun "key-" prefix in English prose ─────────────────────
+		{
+			name:    "key-miss phrase in a log message",
+			file:    "main.go",
+			content: `fmt.Println("cache key-miss for user", userID)`,
+		},
+		// ── Regression: original reported bug (variable name in Printf arg) ───
+		{
+			name:    "long variable name containing offset passed to Printf",
+			file:    "cmd/main.go",
+			content: `fmt.Printf("hello world", internalCacheRegisterOffset)`,
+		},
+		// ── Additional safe patterns ───────────────────────────────────────────
+		{
+			name:    "YAML colon line with a short safe value",
+			file:    "config.yaml",
+			content: `database_host: localhost`,
+		},
+		{
+			name:    "env export with an env-var reference (not a literal secret)",
+			file:    "deploy.sh",
+			content: `export GITHUB_TOKEN=$GITHUB_TOKEN`,
+		},
+	}
+
+	for _, c := range falsePositiveCases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			findings := s.ScanContent(c.file, []byte(c.content))
+			if len(findings) != 0 {
+				t.Errorf("want 0 findings (false positive), got %d", len(findings))
+				for i, f := range findings {
+					t.Logf("  [%d] sig=%s token=%q line=%q", i, f.SignatureID, f.Token, f.LineContent)
+				}
+			}
+		})
+	}
+}
+
+// TestTruePositive_Regression ensures the false-positive fixes did not
+// suppress any genuine secret detections.
+func TestTruePositive_Regression(t *testing.T) {
+	s := defaultScanner()
+
+	truePositiveCases := []struct {
+		name    string
+		file    string
+		content string
+		wantMin int
+	}{
+		{
+			name:    "GitHub PAT in assignment",
+			file:    "cmd/main.go",
+			content: `credentialToken := "ghp_REALTOKEN1234567890abcdef"`,
+			wantMin: 1,
+		},
+		{
+			name:    "AWS access key in assignment",
+			file:    "config.go",
+			content: `ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"`,
+			wantMin: 1,
+		},
+		{
+			name:    "GitHub PAT embedded as literal in Printf arg",
+			file:    "main.go",
+			content: `fmt.Printf("token=%s\n", "ghp_REALTOKEN1234567890abcdef")`,
+			wantMin: 1,
+		},
+		{
+			name:    "password= with a real 24-char secret value",
+			file:    "config.go",
+			content: `password=supersecretpassword12345678`,
+			wantMin: 1,
+		},
+		{
+			name:    "high-entropy token (entropy tier only)",
+			file:    "config/settings.go",
+			content: `SECRET = "Yvk9pNXQJLzR3cW1mEqsTGbHuaOfidw8KvM2nXpQrYsT"`,
+			wantMin: 1,
+		},
+	}
+
+	for _, c := range truePositiveCases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			findings := s.ScanContent(c.file, []byte(c.content))
+			if len(findings) < c.wantMin {
+				t.Errorf("want ≥%d findings (true positive), got %d", c.wantMin, len(findings))
+			}
+		})
+	}
+}

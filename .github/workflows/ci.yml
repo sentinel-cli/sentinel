@@ -1,0 +1,129 @@
+name: Sentinel CI
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    tags:     [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  GO_VERSION: "1.22"
+
+jobs:
+  # ── Test & Lint ─────────────────────────────────────────────────────────────
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run tests with race detector
+        run: go test ./... -race -count=1 -timeout 120s -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.out
+          fail_ci_if_error: false
+
+      - name: Run benchmarks (smoke-run)
+        run: go test ./... -bench=. -benchmem -benchtime=1x -run='^$'
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Run staticcheck
+        run: staticcheck ./...
+
+  # ── Build (multi-platform) ──────────────────────────────────────────────────
+  build:
+    name: Build (${{ matrix.goos }}-${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: linux,   goarch: arm   }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set binary suffix
+        id: suffix
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            echo "suffix=.exe" >> $GITHUB_OUTPUT
+          else
+            echo "suffix=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build binary
+        env:
+          GOOS:        ${{ matrix.goos }}
+          GOARCH:      ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=$(git describe --tags --always --dirty)
+          COMMIT=$(git rev-parse --short HEAD)
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          LDFLAGS="-s -w \
+            -X github.com/sentinel-cli/sentinel/pkg/version.Version=${VERSION} \
+            -X github.com/sentinel-cli/sentinel/pkg/version.Commit=${COMMIT} \
+            -X github.com/sentinel-cli/sentinel/pkg/version.Date=${DATE}"
+          go build -trimpath -ldflags "${LDFLAGS}" \
+            -o dist/sentinel-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.suffix.outputs.suffix }} \
+            ./cmd/sentinel
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinel-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/
+
+  # ── Release ─────────────────────────────────────────────────────────────────
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          generate_release_notes: true

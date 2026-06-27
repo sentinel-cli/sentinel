@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .gitignore for the Sentinel project
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Build outputs
+dist/
+/sentinel
+*.exe
+
+# Test coverage artifacts
+coverage.out
+coverage.html
+
+# Go tool cache
+vendor/
+
+# Editor & OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Sensitive config (never commit real credentials)
+.sentinel.yaml
+!.sentinel.yaml.example

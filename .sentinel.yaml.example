@@ -1,0 +1,95 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .sentinel.yaml — Sentinel Pre-Commit Hook Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Place this file in your repository root OR in your home directory (~/).
+# Repository-root config takes precedence over home-directory config.
+# All fields are optional; omitted fields use the built-in defaults shown below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Tier 2 (Entropy) Tuning ───────────────────────────────────────────────────
+
+# Shannon entropy threshold (bits per symbol).
+# Range: 0.0 to 8.0. Default: 3.5
+# ↑ Raise to reduce false positives (misses more exotic secrets).
+# ↓ Lower to increase sensitivity (may increase noise).
+entropy_threshold: 3.5
+
+# Minimum token length for entropy analysis.
+# Tokens shorter than this are ignored — they produce noisy entropy scores.
+# Default: 20
+min_secret_length: 20
+
+# ── File Processing Limits ────────────────────────────────────────────────────
+
+# Maximum file size (in bytes) to fully scan. Files larger than this are
+# skipped with a warning. Default: 10485760 (10 MB)
+max_file_size_bytes: 10485760
+
+# Set to true to also scan binary files (detected via null-byte heuristic).
+# Not recommended for most projects.
+# Default: false
+scan_binary_files: false
+
+# ── Path Exclusions ───────────────────────────────────────────────────────────
+
+# Glob patterns (relative to repo root) to skip entirely.
+# Supports ** for recursive matching.
+exclude_paths:
+  - "vendor/**"
+  - "node_modules/**"
+  - "*.lock"
+  - "go.sum"
+  - "package-lock.json"
+  # Add project-specific exclusions below:
+  # - "path/to/safe/directory/**"
+
+# File extensions to always skip (case-insensitive).
+exclude_extensions:
+  - ".png"
+  - ".jpg"
+  - ".jpeg"
+  - ".gif"
+  - ".bmp"
+  - ".ico"
+  - ".svg"
+  - ".woff"
+  - ".woff2"
+  - ".ttf"
+  - ".eot"
+  - ".mp4"
+  - ".webm"
+  - ".mp3"
+  - ".ogg"
+  - ".zip"
+  - ".tar"
+  - ".gz"
+  - ".bz2"
+  - ".xz"
+  - ".7z"
+  - ".pdf"
+  - ".doc"
+  - ".docx"
+  - ".exe"
+  - ".dll"
+  - ".so"
+  - ".dylib"
+  - ".a"
+  - ".o"
+
+# ── Tier Disabling (Advanced) ─────────────────────────────────────────────────
+
+# Disable specific detection tiers. Use with caution.
+disable_tiers:
+  trie: false      # Disables Aho-Corasick pattern matching
+  entropy: false   # Disables Shannon entropy analysis
+  context: false   # Disables false-positive suppression (NOT recommended)
+
+# ── Behaviour Flags ───────────────────────────────────────────────────────────
+
+# Stop after the first finding. Useful for fast CI fail loops.
+# Default: false
+fail_fast: false
+
+# Print debug information to stderr. Useful for troubleshooting exclusions.
+# Default: false
+verbose: false
