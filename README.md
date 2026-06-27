@@ -743,15 +743,7 @@ If a false positive persists:
 
 ## Contributing
 
-1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/my-improvement`
-3. Write tests covering your changes.
-4. Ensure all tests pass with the race detector: `make test`
-5. Ensure benchmarks do not regress: `make bench`
-6. Submit a pull request with a clear description.
-
-**Adding new secret signatures:**
-Add entries to `BuiltinSignatures` in [`internal/trie/trie.go`](internal/trie/trie.go) following the existing format — `ID`, `Description`, `Prefix`, and `Severity`. All prefixes are lowercased at automaton-build time, so matching is always case-insensitive.
+We welcome community contributions! However, because this project utilizes a Dual-Licensing model, **all contributors must agree to our [Contributor License Agreement (CLA)](CLA.md)**. By opening a Pull Request, you explicitly agree to transfer the copyright of your submitted code to Khaled Hani. This ensures the project remains legally secure for both open-source and commercial environments.
 
 
 
