@@ -276,6 +276,8 @@ sentinel/
 │       └── version.go              # Build metadata (version, commit, date)
 │
 ├── tests/
+│   ├── benchmark/
+│   │   └── doomsday_generator.py   # The Doomsday Stress-Test Suite
 │   ├── trie_test.go                # Tier 1 unit + benchmark tests
 │   ├── entropy_test.go             # Tier 2 unit + benchmark tests
 │   ├── context_test.go             # Tier 3 unit tests
@@ -291,6 +293,8 @@ sentinel/
 │       └── ci.yml                  # GitHub Actions CI pipeline
 │
 ├── .sentinel.yaml.example          # Fully annotated configuration reference
+├── CHANGELOG.md                    # Release history
+├── CLA.md                          # Contributor License Agreement
 ├── Makefile                        # Developer convenience targets
 ├── go.mod
 └── README.md
