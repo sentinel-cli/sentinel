@@ -230,15 +230,29 @@ func Build(sigs []Signature) *Automaton {
 func (a *Automaton) Search(content []byte) []Match {
 	var matches []Match
 
-	// Pre-compute newline positions for O(1) line-number lookup.
-	newlines := buildNewlineIndex(content)
+	lineNum := 1
+	lineStart := 0
 
 	cur := a.root
 	for i, b := range content {
+		if b == '\n' {
+			lineNum++
+			lineStart = i + 1
+		}
 		c := toLower(b)
 		cur = cur.children[c]
 		if len(cur.output) > 0 {
-			lineNum, lineContent := lineAt(content, newlines, i)
+			// Find the end of the line for LineContent
+			end := i
+			for end < len(content) && content[end] != '\n' {
+				end++
+			}
+			
+			lineContent := content[lineStart:end]
+			if len(lineContent) > 512 {
+				lineContent = lineContent[:512]
+			}
+
 			for _, sig := range cur.output {
 				matches = append(matches, Match{
 					Sig:         sig,
@@ -252,47 +266,7 @@ func (a *Automaton) Search(content []byte) []Match {
 	return matches
 }
 
-// buildNewlineIndex returns the byte offsets of every '\n' in content.
-func buildNewlineIndex(content []byte) []int {
-	var idx []int
-	for i, b := range content {
-		if b == '\n' {
-			idx = append(idx, i)
-		}
-	}
-	return idx
-}
 
-// lineAt returns the 1-indexed line number and the text of the line containing
-// offset using a binary search on the pre-built newline index.
-func lineAt(content []byte, newlines []int, offset int) (int, []byte) {
-	lo, hi := 0, len(newlines)
-	for lo < hi {
-		mid := (lo + hi) / 2
-		if newlines[mid] < offset {
-			lo = mid + 1
-		} else {
-			hi = mid
-		}
-	}
-	lineNum := lo + 1
-
-	// Find the start and end of the line.
-	start := 0
-	if lo > 0 {
-		start = newlines[lo-1] + 1
-	}
-	end := len(content)
-	if lo < len(newlines) {
-		end = newlines[lo]
-	}
-
-	// Cap line content to 512 bytes to prevent huge log lines.
-	if end-start > 512 {
-		end = start + 512
-	}
-	return lineNum, content[start:end]
-}
 
 // toLower converts an ASCII byte to lowercase without a branch table.
 func toLower(b byte) byte {

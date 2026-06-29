@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -227,43 +229,74 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 			}
 		}
 
-		for _, filePath := range targets {
-			if scanner.HasExcludedExtension(filePath, cfg.ExcludeExtensions) {
-				continue
-			}
-			if scanner.MatchesExcludePath(filePath, cfg.ExcludePaths) {
-				continue
-			}
+		var wg sync.WaitGroup
+		var mu sync.Mutex
 
-			info, err := os.Stat(filePath)
-			if err != nil {
-				continue
-			}
-			if info.Size() == 0 || info.Size() > cfg.MaxFileSizeBytes {
-				continue
-			}
-
-			if !cfg.ScanBinaryFiles && isBinaryFileFast(filePath) {
-				continue
-			}
-
-			content, err := os.ReadFile(filePath)
-			if err != nil {
-				if cfg.Verbose {
-					fmt.Fprintf(os.Stderr, "  [verbose] cannot read %s: %v\n", filePath, err)
-				}
-				continue
-			}
-
-			scannedCount++
-			findings := sec.ScanContent(filePath, content)
-			for _, f := range findings {
-				if _, exists := seenTokens[f.Token]; !exists {
-					seenTokens[f.Token] = struct{}{}
-					allFindings = append(allFindings, f)
-				}
-			}
+		// Limit concurrency to NumCPU to prevent thrashing
+		numWorkers := runtime.NumCPU()
+		if numWorkers < 4 {
+			numWorkers = 4
 		}
+		
+		jobs := make(chan string, len(targets))
+		for _, t := range targets {
+			jobs <- t
+		}
+		close(jobs)
+
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for filePath := range jobs {
+					if scanner.HasExcludedExtension(filePath, cfg.ExcludeExtensions) {
+						continue
+					}
+					if scanner.MatchesExcludePath(filePath, cfg.ExcludePaths) {
+						continue
+					}
+
+					info, err := os.Stat(filePath)
+					if err != nil {
+						continue
+					}
+					if info.Size() == 0 || info.Size() > cfg.MaxFileSizeBytes {
+						continue
+					}
+
+					if !cfg.ScanBinaryFiles && isBinaryFileFast(filePath) {
+						continue
+					}
+
+					content, err := os.ReadFile(filePath)
+					if err != nil {
+						if cfg.Verbose {
+							mu.Lock()
+							fmt.Fprintf(os.Stderr, "  [verbose] cannot read %s: %v\n", filePath, err)
+							mu.Unlock()
+						}
+						continue
+					}
+
+					mu.Lock()
+					scannedCount++
+					mu.Unlock()
+
+					findings := sec.ScanContent(filePath, content)
+					if len(findings) > 0 {
+						mu.Lock()
+						for _, f := range findings {
+							if _, exists := seenTokens[f.Token]; !exists {
+								seenTokens[f.Token] = struct{}{}
+								allFindings = append(allFindings, f)
+							}
+						}
+						mu.Unlock()
+					}
+				}
+			}()
+		}
+		wg.Wait()
 	}
 
 

@@ -91,45 +91,53 @@ type EntropyHit struct {
 func Analyze(content []byte, threshold float64, minLen int) []EntropyHit {
 	var hits []EntropyHit
 
-	lines := splitLines(content)
-	for i, line := range lines {
-		lineNum := i + 1
-		lineStr := string(line)
+	lineNum := 1
+	start := 0
+	for i := 0; i <= len(content); i++ {
+		if i == len(content) || content[i] == '\n' {
+			if i > start {
+				line := content[start:i]
 
-		// Extract and score Base64-alphabet tokens.
-		extractTokens(line, base64Set, minLen, func(tok []byte) {
-			if isJavaConstant(tok) || isAllSameChar(string(tok)) {
-				return
-			}
-			e := Shannon(tok)
-			if e >= threshold {
-				hits = append(hits, EntropyHit{
-					Token:       string(tok),
-					Entropy:     e,
-					Line:        lineNum,
-					LineContent: truncate(lineStr, 512),
-					Kind:        "base64",
+				// Extract and score Base64-alphabet tokens.
+				extractTokens(line, base64Set, minLen, func(tok []byte) {
+					if isJavaConstant(tok) || isAllSameChar(tok) {
+						return
+					}
+					e := Shannon(tok)
+					if e >= threshold {
+						hits = append(hits, EntropyHit{
+							Token:       string(tok),
+							Entropy:     e,
+							Line:        lineNum,
+							LineContent: truncateBytes(line, 512),
+							Kind:        "base64",
+						})
+					}
+				})
+
+				// Extract and score hex-alphabet tokens (must be even length to look
+				// like a real hash/key).
+				extractHexTokens(line, minLen, func(tok []byte) {
+					if len(tok)%2 != 0 || isJavaConstant(tok) {
+						return
+					}
+					e := Shannon(tok)
+					if e >= threshold {
+						hits = append(hits, EntropyHit{
+							Token:       string(tok),
+							Entropy:     e,
+							Line:        lineNum,
+							LineContent: truncateBytes(line, 512),
+							Kind:        "hex",
+						})
+					}
 				})
 			}
-		})
-
-		// Extract and score hex-alphabet tokens (must be even length to look
-		// like a real hash/key).
-		extractHexTokens(line, minLen, func(tok []byte) {
-			if len(tok)%2 != 0 || isJavaConstant(tok) {
-				return
+			if i < len(content) {
+				lineNum++
+				start = i + 1
 			}
-			e := Shannon(tok)
-			if e >= threshold {
-				hits = append(hits, EntropyHit{
-					Token:       string(tok),
-					Entropy:     e,
-					Line:        lineNum,
-					LineContent: truncate(lineStr, 512),
-					Kind:        "hex",
-				})
-			}
-		})
+		}
 	}
 	return hits
 }
@@ -188,25 +196,9 @@ func extractHexTokens(line []byte, minLen int, cb func([]byte)) {
 	}
 }
 
-// splitLines splits content on '\n' boundaries.
-func splitLines(content []byte) [][]byte {
-	var lines [][]byte
-	start := 0
-	for i, b := range content {
-		if b == '\n' {
-			lines = append(lines, content[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(content) {
-		lines = append(lines, content[start:])
-	}
-	return lines
-}
-
 // isAllSameChar returns true if every character in s is identical.  Such
 // strings (e.g. "AAAAAAAAAA") have zero entropy and are safe to skip.
-func isAllSameChar(s string) bool {
+func isAllSameChar(s []byte) bool {
 	if len(s) == 0 {
 		return true
 	}
@@ -219,14 +211,12 @@ func isAllSameChar(s string) bool {
 	return true
 }
 
-
-
-// truncate caps a string at maxLen bytes without breaking multi-byte runes.
-func truncate(s string, maxLen int) string {
+// truncateBytes caps a byte slice at maxLen bytes and returns a string.
+func truncateBytes(s []byte, maxLen int) string {
 	if len(s) <= maxLen {
-		return s
+		return string(s)
 	}
-	return s[:maxLen]
+	return string(s[:maxLen])
 }
 
 // IsBase64Like returns true when more than 75% of characters in s are from the
