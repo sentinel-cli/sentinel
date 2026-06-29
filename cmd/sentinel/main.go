@@ -45,11 +45,28 @@ and other sensitive data using a three-tier detection pipeline:
   Tier 2 (ENTROPY)  — Shannon entropy analysis for unknown/novel secrets
   Tier 3 (CONTEXT)  — Context-aware false-positive suppression
 
+CLI Commands & Flags:
 
-Run 'sentinel install' to activate the hook in your current git repository.
-Run 'sentinel install --global' to activate it across all repositories.
+  sentinel run                  Run the core pre-commit scan on staged files.
+      -c, --config string       Path to .sentinel.yaml config file.
+      -f, --format string       Output format: pretty|json|plain.
+      --fail-fast               Stop after the first finding.
+      -v, --verbose             Enable verbose debug output.
 
-You can keep Sentinel up to date using 'sentinel update', and remove it with 'sentinel uninstall'.
+  sentinel scan [path...]       Ad-hoc mode to scan arbitrary files or directories.
+      -c, --config string       Path to config file.
+      -f, --format string       Output format.
+      -r, --recursive           Scan directories recursively.
+      -v, --verbose             Enable verbose output.
+
+  sentinel install              Install the pre-commit hook into a repository.
+      --global                  Install globally via git core.hooksPath.
+      --repo string             Path to the git repository root.
+      -f, --force               Overwrite an existing hook without prompting.
+
+  sentinel uninstall            Completely remove Sentinel, binary, and all hooks.
+  sentinel update               Update Sentinel to the latest version.
+  sentinel version              Print Sentinel version and build metadata.
 
 Developed by: Khaled Hani | Contact: https://t.me/A245F`,
 		Version:       version.Version,

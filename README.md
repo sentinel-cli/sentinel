@@ -672,20 +672,50 @@ sentinel:
 
 ---
 
-### Lifecycle Commands
+### CLI Commands & Flags
 
-| Command | Description |
-|---------|-------------|
-| `sentinel install` | Install pre-commit hook into current repository |
-| `sentinel install --global` | Install hook globally for all repositories |
-| `sentinel install --force` | Overwrite an existing hook |
-| `sentinel uninstall` | Completely uninstall Sentinel, binary, and all hooks |
-| `sentinel update` | Automatically detect OS/Arch and upgrade to the latest pre-compiled release |
-| `sentinel version` | Print version, commit, and build date |
-| `sentinel run` | Run the pre-commit scan (called by git hook) |
-| `sentinel scan [path...]` | Ad-hoc scan of files or directories |
+Sentinel provides a robust CLI powered by the Cobra framework. Here is the comprehensive list of commands and their options:
 
-Sentinel features a **silent, non-blocking background update check** that runs at most once per day to notify you of new releases. When you run `sentinel update`, the tool dynamically queries the GitHub Releases API, finds the exact pre-compiled binary for your architecture (or falls back to `go install`), and performs an atomic safe-replacement of the running executable.
+#### 1. `sentinel run`
+The core execution engine. Automatically invoked by Git during `git commit` to sweep staged lines for secrets.
+* `-c, --config string`: Path to a `.sentinel.yaml` config file. (Defaults to repo root, then home directory)
+* `-f, --format string`: Output format: `pretty` (default ANSI), `json` (for CI/CD parsers), or `plain`.
+* `--fail-fast`: Immediately aborts and blocks the commit upon finding the *first* secret.
+* `-v, --verbose`: Enables verbose debug output.
+
+#### 2. `sentinel scan [path...]`
+Ad-hoc scanning mode. Bypasses Git to sweep arbitrary files or directories.
+* `-c, --config string`: Path to a `.sentinel.yaml` config file.
+* `-f, --format string`: Output format: `pretty`, `json`, or `plain`.
+* `-r, --recursive`: Recursively scan subdirectories. (Uses `git ls-files` under the hood if available for max speed).
+* `-v, --verbose`: Enables verbose debug output.
+
+#### 3. `sentinel install`
+Writes the POSIX-compliant shell script into `.git/hooks/pre-commit` to protect the repository.
+* `--global`: Installs the hook globally by creating `~/.config/sentinel/hooks/pre-commit` and running `git config --global core.hooksPath`. Protects every repo on your machine.
+* `--repo string`: Path to the Git repository root (default is current directory `"."`).
+* `-f, --force`: Overwrites an existing `pre-commit` hook script without prompting.
+
+#### 4. `sentinel uninstall`
+The ultimate cleanup command. Safely uproots Sentinel by:
+* Running `git config --global --unset core.hooksPath`.
+* Deleting its own executable binary from your system path dynamically.
+* Deleting the `~/.config/sentinel` directory and local `.git/hooks/pre-commit` file.
+
+#### 5. `sentinel update`
+The Over-The-Air (OTA) self-updater.
+* Queries the GitHub Releases API (using a custom UDP dialer to bypass broken local IPv6/DNS).
+* Downloads the raw pre-compiled binary for your OS/Arch and performs an atomic safe-replacement over the running executable. Falls back to `go install` if no pre-compiled binary matches.
+* Sentinel also features a **silent, non-blocking background update check** that runs at most once per day to notify you of new releases.
+
+#### 6. `sentinel version`
+Prints the build metadata including `Version`, `Commit` (short SHA), and `Date`.
+
+#### Framework & Global Commands
+* `sentinel completion [shell]`: Generates autocompletion scripts for `bash`, `zsh`, `fish`, or `powershell`.
+* `sentinel help [command]`: Prints the help text and flag descriptions.
+* `-h, --help`: Global flag to trigger the help menu.
+* `-v, --version`: Global alias to print the version.
 
 ---
 
