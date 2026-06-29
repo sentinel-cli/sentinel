@@ -61,6 +61,7 @@ It runs on any platform where Go compiles — including **Android/Termux** and m
 - [Running Tests](#running-tests)
 - [Output Reference](#output-reference)
 - [False Positive Handling](#false-positive-handling)
+- [Roadmap (TODO)](#roadmap-todo)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -790,6 +791,14 @@ If a false positive persists:
 3. **Use an env-var reference** — `token: ${MY_TOKEN}` or `token: $MY_TOKEN` are recognized as safe placeholders.
 4. **Add the path to `exclude_paths`** in `.sentinel.yaml`.
 5. **Raise `entropy_threshold`** slightly (e.g., `3.8`) if your codebase has many high-entropy non-secret identifiers.
+
+---
+
+## Roadmap (TODO)
+
+Curious about upcoming enterprise features, capabilities, and general enhancements planned for Sentinel? 
+
+Check out our official **[Public Roadmap (TODO.md)](TODO.md)**.
 
 ---
 
