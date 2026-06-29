@@ -123,6 +123,62 @@ func (s *Scanner) isDuplicateMatch(matches []Finding, newMatch Finding) bool {
 // fmtVerbRE matches printf-style format verbs so they can be rejected as tokens.
 var fmtVerbRE = regexp.MustCompile(`^%[+\-# 0-9]*[vTtbcdoOqxXUeEfFgGsSpw]`)
 
+// isLogIndicator checks if a line clearly indicates structured log/trace output.
+// Replaces the extremely slow case-insensitive regex.
+func isLogIndicator(line []byte) bool {
+	// Fast-path: look for known substrings manually in a case-insensitive way
+	// "bearer ", "token: ", "auth: ", "authorization: "
+	for i := 0; i < len(line)-5; i++ {
+		// Quick check for the first character of each word (b, t, a)
+		c := line[i] | 0x20 // lowercase ascii
+		if c == 'b' && i+7 <= len(line) {
+			if (line[i+1]|0x20) == 'e' && (line[i+2]|0x20) == 'a' && (line[i+3]|0x20) == 'r' && (line[i+4]|0x20) == 'e' && (line[i+5]|0x20) == 'r' && (line[i+6] == ' ' || line[i+6] == '\t') {
+				// Word boundary check
+				if i == 0 || !isAlphaNum(line[i-1]) {
+					return true
+				}
+			}
+		} else if c == 't' && i+7 <= len(line) {
+			if (line[i+1]|0x20) == 'o' && (line[i+2]|0x20) == 'k' && (line[i+3]|0x20) == 'e' && (line[i+4]|0x20) == 'n' && line[i+5] == ':' && (line[i+6] == ' ' || line[i+6] == '\t') {
+				if i == 0 || !isAlphaNum(line[i-1]) {
+					return true
+				}
+			}
+		} else if c == 'a' && i+6 <= len(line) {
+			if (line[i+1]|0x20) == 'u' && (line[i+2]|0x20) == 't' && (line[i+3]|0x20) == 'h' && line[i+4] == ':' && (line[i+5] == ' ' || line[i+5] == '\t') {
+				if i == 0 || !isAlphaNum(line[i-1]) {
+					return true
+				}
+			}
+			// authorization: 
+			if i+15 <= len(line) {
+				if (line[i+1]|0x20) == 'u' && (line[i+2]|0x20) == 't' && (line[i+3]|0x20) == 'h' &&
+					(line[i+4]|0x20) == 'o' && (line[i+5]|0x20) == 'r' && (line[i+6]|0x20) == 'i' &&
+					(line[i+7]|0x20) == 'z' && (line[i+8]|0x20) == 'a' && (line[i+9]|0x20) == 't' &&
+					(line[i+10]|0x20) == 'i' && (line[i+11]|0x20) == 'o' && (line[i+12]|0x20) == 'n' &&
+					line[i+13] == ':' && (line[i+14] == ' ' || line[i+14] == '\t') {
+					if i == 0 || !isAlphaNum(line[i-1]) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func isAlphaNum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+}
+
+var (
+	sentinelIgnoreBytes = []byte("sentinel:ignore")
+	prefixSlash         = []byte("//")
+	prefixHash          = []byte("#")
+	prefixBlock         = []byte("/*")
+	prefixHtml          = []byte("<!--")
+)
+
 // ScanContent runs the full three-tier pipeline against the given raw content
 // and returns all confirmed Findings.
 //
@@ -148,20 +204,32 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 
 		lineTrim := bytes.TrimSpace(rawLine)
 
+		// ── Speed: skip extremely long lines (data-URLs, minified JS, base64 blobs)
+		// Lines > 4096 bytes cannot realistically contain a typed secret token.
+		if len(lineTrim) > 4096 {
+			continue
+		}
+
 		// ── Inline Suppression (sentinel:ignore) ──────────────────────────────
 		if skipNextLine {
 			skipNextLine = false
 			continue
 		}
-		if bytes.Contains(lineTrim, []byte("sentinel:ignore")) {
-			if bytes.HasPrefix(lineTrim, []byte("//")) || bytes.HasPrefix(lineTrim, []byte("#")) || bytes.HasPrefix(lineTrim, []byte("/*")) || bytes.HasPrefix(lineTrim, []byte("<!--")) {
+		if bytes.Contains(lineTrim, sentinelIgnoreBytes) {
+			if bytes.HasPrefix(lineTrim, prefixSlash) || bytes.HasPrefix(lineTrim, prefixHash) || bytes.HasPrefix(lineTrim, prefixBlock) || bytes.HasPrefix(lineTrim, prefixHtml) {
 				skipNextLine = true
 			}
 			continue
 		}
 
-		// ── Skip comment lines early (Tier 3 check 2 fast path) ──────────────
-		if bytes.HasPrefix(lineTrim, []byte("//")) || bytes.HasPrefix(lineTrim, []byte("#")) {
+		// ── Skip code comment lines (// and #) but NOT log/data lines ─────────
+		// Log lines start with digits (timestamps) or letters. Only skip lines
+		// that are clearly source-code comments (start with // or #).
+		// Do NOT skip lines starting with digits — those are log timestamps.
+		isCodeComment := bytes.HasPrefix(lineTrim, prefixSlash) || bytes.HasPrefix(lineTrim, prefixHash)
+		if isCodeComment {
+			// Exception: if the line contains a secret prefix keyword, scan it anyway.
+			// (e.g. a commented-out config line that still has a real token)
 			continue
 		}
 
@@ -241,19 +309,18 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 
 			// Process line matches
 			for _, m := range matches {
-				token := extractTokenFromOffset(string(lineTrim), m.Sig.Prefix, m.Offset)
+				token := extractTokenFromOffset(lineTrim, m.Sig.Prefix, m.Offset)
 				if token == "" {
 					continue
 				}
 
+				if !isPlausibleSecretToken(token, m.Sig.Prefix, s.opts.MinSecretLength) {
+					continue
+				}
 				if m.Sig.Validator != nil && !m.Sig.Validator.MatchString(token) {
 					continue
 				}
-
-				if fmtVerbRE.MatchString(token) {
-					continue
-				}
-				if !isPlausibleSecretToken(token, m.Sig.Prefix, s.opts.MinSecretLength) {
+				if len(token) > 0 && token[0] == '%' && fmtVerbRE.MatchString(token) {
 					continue
 				}
 				decision := sentinelcontext.Real
@@ -283,19 +350,18 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 			if len(matches) == 0 && cLen > 0 && cLen < vLen {
 				compMatches := s.automaton.Search(compVal)
 				for _, m := range compMatches {
-					token := extractTokenFromOffset(string(compVal), m.Sig.Prefix, m.Offset)
+					token := extractTokenFromOffset(compVal, m.Sig.Prefix, m.Offset)
 					if token == "" {
 						continue
 					}
 
+					if !isPlausibleSecretToken(token, m.Sig.Prefix, s.opts.MinSecretLength) {
+						continue
+					}
 					if m.Sig.Validator != nil && !m.Sig.Validator.MatchString(token) {
 						continue
 					}
-
-					if fmtVerbRE.MatchString(token) {
-						continue
-					}
-					if !isPlausibleSecretToken(token, m.Sig.Prefix, s.opts.MinSecretLength) {
+					if len(token) > 0 && token[0] == '%' && fmtVerbRE.MatchString(token) {
 						continue
 					}
 					decision := sentinelcontext.Real
@@ -341,17 +407,17 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 					if !s.opts.DisableTrie && s.automaton != nil {
 						decMatches := s.automaton.Search(decodedVal)
 						for _, m := range decMatches {
-							token := extractTokenFromOffset(string(decodedVal), m.Sig.Prefix, m.Offset)
+							token := extractTokenFromOffset(decodedVal, m.Sig.Prefix, m.Offset)
 							if token == "" {
+								continue
+							}
+							if !isPlausibleSecretToken(token, m.Sig.Prefix, s.opts.MinSecretLength) {
 								continue
 							}
 							if m.Sig.Validator != nil && !m.Sig.Validator.MatchString(token) {
 								continue
 							}
-							if fmtVerbRE.MatchString(token) {
-								continue
-							}
-							if !isPlausibleSecretToken(token, m.Sig.Prefix, s.opts.MinSecretLength) {
+							if len(token) > 0 && token[0] == '%' && fmtVerbRE.MatchString(token) {
 								continue
 							}
 							decision := sentinelcontext.Real
@@ -413,6 +479,46 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 				}
 			}
 		}
+
+		// ── Log-line heuristic: Bearer / Token: / auth: indicators ────────────
+		// For lines that look like structured log output with an explicit auth
+		// keyword, run entropy on each whitespace-delimited token. This catches
+		// Base64-encoded credentials in log files without relaxing the global parser.
+		if !s.opts.DisableEntropy && isLogIndicator(lineTrim) {
+			for _, tok := range bytes.Fields(lineTrim) {
+				if len(tok) < s.opts.MinSecretLength {
+					continue
+				}
+				tokStr := cleanToken(string(tok))
+				if len(tokStr) < s.opts.MinSecretLength {
+					continue
+				}
+				hits := entropy.Analyze([]byte(tokStr), 4.0, s.opts.MinSecretLength)
+				for _, h := range hits {
+					decision := sentinelcontext.Real
+					if !s.opts.DisableContext {
+						decision = sentinelcontext.Classify(filePath, string(rawLine), h.Token)
+					}
+					if decision == sentinelcontext.Real {
+						newMatch := Finding{
+							FilePath:      filePath,
+							Line:          lineNum,
+							LineContent:   string(rawLine),
+							Token:         cleanToken(h.Token),
+							Entropy:       h.Entropy,
+							DetectionTier: TierEntropy,
+							SignatureID:   fmt.Sprintf("log-high-entropy-%s", h.Kind),
+							Description:   fmt.Sprintf("High-entropy %s in log auth context (entropy=%.2f)", strings.ToUpper(h.Kind), h.Entropy),
+							Severity:      entropySeverity(h.Entropy),
+						}
+						if s.isDuplicateMatch(findings, newMatch) {
+							continue
+						}
+						findings = append(findings, newMatch)
+					}
+				}
+			}
+		}
 	}
 	return aggregateBlobs(findings)
 }
@@ -430,9 +536,9 @@ func IsBinary(content []byte) bool {
 // HasExcludedExtension returns true when the file's extension is in the
 // excluded list.
 func HasExcludedExtension(filePath string, excluded []string) bool {
-	ext := strings.ToLower(filepath.Ext(filePath))
+	ext := filepath.Ext(filePath)
 	for _, e := range excluded {
-		if strings.ToLower(e) == ext {
+		if strings.EqualFold(e, ext) {
 			return true
 		}
 	}
@@ -486,25 +592,23 @@ func matchesPathComponent(filePath, pattern string) bool {
 //   - Variable names like "ACAccountSID" are never returned as values.
 //   - Only the actual RHS of an assignment or an inline literal is evaluated.
 func extractSecretValue(lineTrim []byte) (val []byte, isAssignment bool) {
-	line := string(lineTrim)
-
 	// ── Assignment branch ─────────────────────────────────────────────────────
 	// Detect ":=" (Go) or "=" (shell/env/YAML/generic) assignment operators.
 	// We must be careful not to trigger on "==" (comparison) or inside quotes.
-	rhsStr, ok := extractRHS(line)
+	rhsStr, ok := extractRHS(lineTrim)
 	if ok {
 		// From the RHS, prefer the first quoted literal. If none, take the first
 		// whitespace-delimited token (could be a bare value like an API key).
 		quoted := firstQuotedLiteral(rhsStr)
-		if quoted != "" {
-			return []byte(quoted), true
+		if len(quoted) > 0 {
+			return quoted, true
 		}
 		// Bare token: strip trailing punctuation common in code.
-		fields := strings.Fields(rhsStr)
+		fields := bytes.Fields(rhsStr)
 		if len(fields) > 0 {
-			bare := strings.TrimRight(fields[0], `"'`+"`,;)")
-			if bare != "" {
-				return []byte(bare), true
+			bare := bytes.TrimRight(fields[0], `"'`+"`,;)")
+			if len(bare) > 0 {
+				return bare, true
 			}
 		}
 		return nil, true
@@ -513,12 +617,18 @@ func extractSecretValue(lineTrim []byte) (val []byte, isAssignment bool) {
 	// ── Quoted-literal branch (non-assignment lines) ───────────────────────────
 	// Only scan what is inside quoted strings on the line. Never the raw tokens
 	// like variable names or format verbs outside quotes.
-	quoted := allQuotedLiterals(line)
-	if quoted == "" {
+	quoted := allQuotedLiterals(lineTrim)
+	if len(quoted) == 0 {
 		return nil, false
 	}
-	return []byte(quoted), false
+	return quoted, false
 }
+
+var (
+	opColonEqual = []byte(":=")
+	opColon      = []byte(":")
+	urlProto     = []byte("//")
+)
 
 // extractRHS detects an assignment operator on the line and returns the RHS.
 // It returns ("", false) if no assignment is present.
@@ -526,10 +636,10 @@ func extractSecretValue(lineTrim []byte) (val []byte, isAssignment bool) {
 //   - ":="  Go short variable declaration
 //   - "="   shell / env / YAML / generic (but not "==" or "!=")
 //   - ":"   YAML key: value (but only when "=" is absent)
-func extractRHS(line string) (string, bool) {
+func extractRHS(line []byte) ([]byte, bool) {
 	// :=  — highest priority (Go)
-	if idx := strings.Index(line, ":="); idx >= 0 {
-		return strings.TrimSpace(line[idx+2:]), true
+	if idx := bytes.Index(line, opColonEqual); idx >= 0 {
+		return bytes.TrimSpace(line[idx+2:]), true
 	}
 
 	// = — but not == or !=
@@ -563,118 +673,112 @@ func extractRHS(line string) (string, bool) {
 				continue
 			}
 			if i+1 >= len(line) {
-				return "", false
+				return nil, false
 			}
-			return strings.TrimSpace(line[i+1:]), true
+			return bytes.TrimSpace(line[i+1:]), true
 		}
 	}
 
 	// : YAML-style — only if there is no = on the line at all.
-	if idx := strings.Index(line, ":"); idx >= 0 {
+	if idx := bytes.Index(line, opColon); idx >= 0 {
 		// Make sure it is not inside a quoted string or URL (://).
-		after := strings.TrimSpace(line[idx+1:])
-		if strings.HasPrefix(after, "//") {
-			return "", false // URL protocol like https://
+		after := bytes.TrimSpace(line[idx+1:])
+		if bytes.HasPrefix(after, urlProto) {
+			return nil, false // URL protocol like https://
 		}
 		return after, true
 	}
 
-	return "", false
+	return nil, false
 }
 
 // firstQuotedLiteral returns the content of the first quoted string (using
 // double-quote, single-quote, or backtick delimiters) found in s.
-func firstQuotedLiteral(s string) string {
+func firstQuotedLiteral(s []byte) []byte {
 	inQuote := false
 	var quoteChar byte
-	var buf strings.Builder
+	var start int
 	for i := 0; i < len(s); i++ {
 		b := s[i]
 		if inQuote {
 			if b == quoteChar && (i == 0 || s[i-1] != '\\') {
-				return buf.String()
+				return s[start:i]
 			}
-			buf.WriteByte(b)
 		} else if b == '"' || b == '\'' || b == '`' {
 			inQuote = true
 			quoteChar = b
-			buf.Reset()
+			start = i + 1
 		}
 	}
-	return ""
+	return nil
 }
 
 // allQuotedLiterals returns the concatenated content of every quoted string
 // literal found in s, separated by spaces.  Used for non-assignment lines
 // where we want to scan only what is inside string literals.
-func allQuotedLiterals(s string) string {
-	var parts []string
+func allQuotedLiterals(s []byte) []byte {
+	var parts [][]byte
 	inQuote := false
 	var quoteChar byte
-	var buf strings.Builder
+	var start int
 	for i := 0; i < len(s); i++ {
 		b := s[i]
 		if inQuote {
 			if b == quoteChar && (i == 0 || s[i-1] != '\\') {
 				inQuote = false
-				if buf.Len() > 0 {
-					parts = append(parts, buf.String())
-					buf.Reset()
+				if i > start {
+					parts = append(parts, s[start:i])
 				}
-			} else {
-				buf.WriteByte(b)
 			}
 		} else if b == '"' || b == '\'' || b == '`' {
 			inQuote = true
 			quoteChar = b
+			start = i + 1
 		}
 	}
-	return strings.Join(parts, " ")
+	if len(parts) == 0 {
+		return nil
+	}
+	return bytes.Join(parts, []byte(" "))
 }
 
-// extractTokenFromMatch attempts to extract the actual secret value that
-// follows the matched prefix.  It is called with val — the already-isolated
-// RHS or literal content — not the raw line.
-//
-// If isAssignment is true the prefix may appear directly in val; if false,
-// val is already the quoted-literal content and the prefix must be present
 // extractTokenFromOffset isolates the secret token from the string given the exact offset
 // where the pattern prefix ends.
-func extractTokenFromOffset(val, prefix string, offset int) string {
+func extractTokenFromOffset(val []byte, prefix string, offset int) string {
 	start := offset - len(prefix) + 1
 	if start < 0 || offset >= len(val) {
 		return ""
 	}
 
-	after := ""
+	var after []byte
 	if strings.HasSuffix(prefix, "=") || strings.HasSuffix(prefix, ":") {
-		after = strings.TrimSpace(val[offset+1:])
+		after = bytes.TrimSpace(val[offset+1:])
 	} else {
-		after = strings.TrimSpace(val[start:])
+		after = bytes.TrimSpace(val[start:])
 	}
 
 	// Strict bypass for PEM headers (don't break on spaces, keep dashes)
-	if strings.HasPrefix(after, "-----BEGIN ") {
-		endIdx := strings.Index(after[11:], "-----")
+	if bytes.HasPrefix(after, []byte("-----BEGIN ")) {
+		endIdx := bytes.Index(after[11:], []byte("-----"))
 		if endIdx != -1 {
-			return after[:11+endIdx+5]
+			return string(after[:11+endIdx+5])
 		}
-		return after // fallback
+		return string(after) // fallback
 	}
 
-	after = strings.TrimLeft(after, "\"'`=: ")
+	after = bytes.TrimLeft(after, "\"'`=: ")
 	
 	// Truncate at the first closing quote to properly isolate tokens in minified code
 	// where space delimiters do not exist.
-	if qIdx := strings.IndexAny(after, "\"'`"); qIdx > 0 {
+	if qIdx := bytes.IndexAny(after, "\"'`"); qIdx > 0 {
 		after = after[:qIdx]
 	}
 
-	fields := strings.Fields(after)
+	fields := bytes.Fields(after)
 	if len(fields) == 0 {
 		return ""
 	}
-	tok := cleanToken(fields[0])
+	tok := cleanToken(string(fields[0]))
 	if len(tok) == 0 {
 		return ""
 	}
@@ -713,7 +817,33 @@ func isStrictBip39Mnemonic(val string) bool {
 // qualify as a secret and must not look like a plain CamelCase/PascalCase
 // Go identifier (all ASCII letters and digits with no special chars).
 func isPlausibleSecretToken(token, prefix string, minLen int) bool {
+	if len(token) > 400 {
+		return false
+	}
 	if len(token) < minLen/2 {
+		return false
+	}
+	// Reject tokens that contain obvious regex syntax (False Positive reduction)
+	if strings.Contains(token, "[") && strings.Contains(token, "]") {
+		return false
+	}
+	if strings.Contains(token, "{") && strings.Contains(token, "}") {
+		return false
+	}
+	if strings.Contains(token, "(?:") || strings.Contains(token, ".*") {
+		return false
+	}
+	// Reject tokens that are identical to their prefix (no secret material attached).
+	// This prevents false positives on regex signatures or empty mock strings.
+	if token == prefix {
+		return false
+	}
+	// Reject bare PEM headers without key material attached.
+	// Sentinel scans line-by-line; if a line is just the header, rejecting it prevents
+	// false positives on regex definitions. The actual key material on subsequent lines
+	// will still be caught by Tier 2 (Entropy) and flagged as a Massive Base64 Blob.
+	// This also fixes double-counting where the header and blob were both flagged.
+	if strings.HasPrefix(token, "-----BEGIN ") && strings.HasSuffix(strings.TrimSpace(token), "-----") {
 		return false
 	}
 	// For short prefixes, apply stricter checks.

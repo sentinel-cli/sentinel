@@ -78,7 +78,7 @@ var BuiltinSignatures = []Signature{
 	{ID: "anthropic-key", Description: "Anthropic API Key", Prefix: "sk-ant-", Severity: "CRITICAL"},
 
 	// ── Twilio ────────────────────────────────────────────────────────────────
-	{ID: "twilio-account-sid", Description: "Twilio Account SID", Prefix: "AC", Severity: "MEDIUM", Validator: regexp.MustCompile(`^AC[a-zA-Z0-9]{32}$`)},
+	{ID: "twilio-account-sid", Description: "Twilio Account SID", Prefix: "AC", Severity: "MEDIUM", Validator: regexp.MustCompile(`\bAC[a-f0-9]{32}\b`)},
 	{ID: "twilio-auth-token", Description: "Twilio Auth Token prefix", Prefix: "SK", Severity: "MEDIUM", Validator: regexp.MustCompile(`^SK[a-zA-Z0-9]{32}$`)},
 
 	// ── SendGrid ──────────────────────────────────────────────────────────────
@@ -89,6 +89,12 @@ var BuiltinSignatures = []Signature{
 
 	// ── NPM ───────────────────────────────────────────────────────────────────
 	{ID: "npm-token", Description: "npm Automation/Publish Token", Prefix: "npm_", Severity: "HIGH"},
+
+	// ── JWT ───────────────────────────────────────────────────────────────────
+	// eyJ is the base64url encoding of '{"' — the start of every JWT header.
+	// Strict 3-part dot-separated validator prevents false positives.
+	{ID: "jwt", Description: "JSON Web Token (JWT)", Prefix: "eyJ", Severity: "HIGH",
+		Validator: regexp.MustCompile(`^eyJ[A-Za-z0-9_-]{10,250}\.[A-Za-z0-9_-]{10,500}\.[A-Za-z0-9_-]{10,250}$`)},
 
 	// ── Private Keys ──────────────────────────────────────────────────────────
 	{ID: "rsa-private-key", Description: "RSA Private Key (PEM)", Prefix: "-----BEGIN RSA PRIVATE KEY-----", Severity: "CRITICAL"},

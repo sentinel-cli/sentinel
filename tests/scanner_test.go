@@ -3,6 +3,8 @@
 package tests
 
 import (
+	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -656,5 +658,20 @@ func TestTruePositive_Regression(t *testing.T) {
 				t.Errorf("want ≥%d findings (true positive), got %d", c.wantMin, len(findings))
 			}
 		})
+	}
+}
+
+func BenchmarkScanner_MassiveMinifiedLine(b *testing.B) {
+	s := defaultScanner()
+	// Create a 5MB line with no newlines
+	var buf bytes.Buffer
+	for i := 0; i < 100000; i++ {
+		buf.WriteString(`{"key":"value","status":"ok","data":` + fmt.Sprint(i) + `},`)
+	}
+	content := buf.Bytes()
+	b.SetBytes(int64(len(content)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = s.ScanContent("minified.json", content)
 	}
 }

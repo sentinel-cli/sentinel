@@ -61,6 +61,7 @@ CLI Commands & Flags:
       -f, --format string       Output format.
       -r, --recursive           Scan directories recursively.
       -v, --verbose             Enable verbose output.
+      --history                 Deep scan the entire git commit history.
 
   sentinel install              Install the pre-commit hook into a repository.
       --global                  Install globally via git core.hooksPath.

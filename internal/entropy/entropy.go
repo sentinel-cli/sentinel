@@ -5,10 +5,7 @@ package entropy
 
 import (
 	"math"
-	"regexp"
 )
-
-var javaConstantRE = regexp.MustCompile(`^[a-zA-Z\._]+$`)
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Character-set classifiers for token extraction
@@ -100,50 +97,55 @@ func Analyze(content []byte, threshold float64, minLen int) []EntropyHit {
 		lineStr := string(line)
 
 		// Extract and score Base64-alphabet tokens.
-		for _, tok := range extractTokens(line, base64Set, minLen) {
-			if javaConstantRE.MatchString(tok) {
-				continue
+		extractTokens(line, base64Set, minLen, func(tok []byte) {
+			if isJavaConstant(tok) || isAllSameChar(string(tok)) {
+				return
 			}
-			e := Shannon([]byte(tok))
+			e := Shannon(tok)
 			if e >= threshold {
 				hits = append(hits, EntropyHit{
-					Token:       tok,
+					Token:       string(tok),
 					Entropy:     e,
 					Line:        lineNum,
 					LineContent: truncate(lineStr, 512),
 					Kind:        "base64",
 				})
 			}
-		}
+		})
 
 		// Extract and score hex-alphabet tokens (must be even length to look
 		// like a real hash/key).
-		for _, tok := range extractHexTokens(line, minLen) {
-			if len(tok)%2 != 0 {
-				continue
+		extractHexTokens(line, minLen, func(tok []byte) {
+			if len(tok)%2 != 0 || isJavaConstant(tok) {
+				return
 			}
-			if javaConstantRE.MatchString(tok) {
-				continue
-			}
-			e := Shannon([]byte(tok))
+			e := Shannon(tok)
 			if e >= threshold {
 				hits = append(hits, EntropyHit{
-					Token:       tok,
+					Token:       string(tok),
 					Entropy:     e,
 					Line:        lineNum,
 					LineContent: truncate(lineStr, 512),
 					Kind:        "hex",
 				})
 			}
-		}
+		})
 	}
 	return hits
 }
 
+func isJavaConstant(tok []byte) bool {
+	for _, b := range tok {
+		if !((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || b == '.' || b == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 // extractTokens splits a line by the given character set and returns all
 // contiguous runs that are entirely within that character set and meet minLen.
-func extractTokens(line []byte, charSet [256]bool, minLen int) []string {
-	var tokens []string
+func extractTokens(line []byte, charSet [256]bool, minLen int, cb func([]byte)) {
 	start := -1
 	for i, b := range line {
 		if charSet[b] {
@@ -152,27 +154,20 @@ func extractTokens(line []byte, charSet [256]bool, minLen int) []string {
 			}
 		} else {
 			if start != -1 {
-				tok := string(line[start:i])
-				if len(tok) >= minLen && !isAllSameChar(tok) {
-					tokens = append(tokens, tok)
+				if i-start >= minLen {
+					cb(line[start:i])
 				}
 				start = -1
 			}
 		}
 	}
-	if start != -1 {
-		tok := string(line[start:])
-		if len(tok) >= minLen && !isAllSameChar(tok) {
-			tokens = append(tokens, tok)
-		}
+	if start != -1 && len(line)-start >= minLen {
+		cb(line[start:])
 	}
-	return tokens
 }
 
-// extractHexTokens is a specialised extractor for lowercase and uppercase hex
-// strings.
-func extractHexTokens(line []byte, minLen int) []string {
-	var tokens []string
+// extractHexTokens performs the same extraction specifically for hexadecimal strings.
+func extractHexTokens(line []byte, minLen int, cb func([]byte)) {
 	start := -1
 	for i, b := range line {
 		if hexSet[b] {
@@ -181,21 +176,16 @@ func extractHexTokens(line []byte, minLen int) []string {
 			}
 		} else {
 			if start != -1 {
-				tok := string(line[start:i])
-				if len(tok) >= minLen {
-					tokens = append(tokens, tok)
+				if i-start >= minLen {
+					cb(line[start:i])
 				}
 				start = -1
 			}
 		}
 	}
-	if start != -1 {
-		tok := string(line[start:])
-		if len(tok) >= minLen {
-			tokens = append(tokens, tok)
-		}
+	if start != -1 && len(line)-start >= minLen {
+		cb(line[start:])
 	}
-	return tokens
 }
 
 // splitLines splits content on '\n' boundaries.

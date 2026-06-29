@@ -224,7 +224,8 @@ func (r *Reporter) prettySummary(findings []scanner.Finding, elapsed time.Durati
 	fmt.Fprintln(r.w, strings.Repeat("─", 68))
 	fmt.Fprintln(r.w)
 
-	errorColor.Fprintf(r.w, "  ✘ COMMIT BLOCKED — remove the secrets above and try again.\n\n")
+	errorColor.Fprintf(r.w, "  ✘ COMMIT BLOCKED — remove the secrets above and try again.\n")
+	dimColor.Fprintf(r.w, "    Hint: If this is a false positive, append '// sentinel:ignore' to the preceding line.\n\n")
 }
 
 func (r *Reporter) plainSummary(findings []scanner.Finding, elapsed time.Duration, scanned int) {

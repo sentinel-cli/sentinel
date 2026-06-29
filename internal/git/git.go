@@ -72,17 +72,62 @@ func IsInsideWorkTree() bool {
 	return strings.TrimSpace(string(out)) == "true"
 }
 
+// GetAllCommits returns a list of all commit hashes in the current git repository.
+func GetAllCommits() ([]string, error) {
+	out, err := runGit("log", "--all", "--format=%H")
+	if err != nil {
+		return nil, fmt.Errorf("git log: %w", err)
+	}
+	var commits []string
+	lines := bytes.Split(out, []byte("\n"))
+	for _, line := range lines {
+		hash := strings.TrimSpace(string(line))
+		if hash != "" {
+			commits = append(commits, hash)
+		}
+	}
+	return commits, nil
+}
+
+// GetCommitFiles returns the files that were modified or added in the given commit.
+func GetCommitFiles(commitHash string) ([]StagedFile, error) {
+	out, err := runGit("diff-tree", "--no-commit-id", "--name-status", "-r", "--root", "--diff-filter=AMRC", commitHash)
+	if err != nil {
+		return nil, fmt.Errorf("git diff-tree: %w", err)
+	}
+	return parseStagedFiles(out), nil
+}
+
+// GetHistoricalContent returns the complete file content of a specific path at a specific commit.
+func GetHistoricalContent(commitHash, path string) ([]byte, error) {
+	out, err := runGit("show", commitHash+":"+path)
+	if err != nil {
+		return nil, fmt.Errorf("git show historical: %w", err)
+	}
+	return out, nil
+}
+
+// GetCommitDiff returns only the added lines for a specific file in a specific commit.
+func GetCommitDiff(commitHash, path string) ([]byte, error) {
+	out, err := runGit("show", "--format=", "-p", commitHash, "--", path)
+	if err != nil {
+		return nil, fmt.Errorf("git show diff %s %s: %w", commitHash, path, err)
+	}
+	return filterAddedLines(out), nil
+}
+
 // runGit executes git with the supplied arguments and returns combined output.
 func runGit(args ...string) ([]byte, error) {
 	cmd := exec.Command("git", args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("%w — stderr: %s", err, stderr.String())
+	out, err := cmd.Output()
+	if err != nil {
+		var stderr []byte
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr = exitErr.Stderr
+		}
+		return nil, fmt.Errorf("%w — stderr: %s", err, string(stderr))
 	}
-	return stdout.Bytes(), nil
+	return out, nil
 }
 
 // parseStagedFiles splits the raw `git diff --name-status` output into
