@@ -685,7 +685,7 @@ func TestScanner_V2_Fiabilidad_Inteligencia(t *testing.T) {
 			MinSecretLength:  20,
 			AllowlistPatterns: []string{
 				"ghp_EXACTMATCHONLY1234567890123456",
-				"sk_test_*",
+				"AKIA*ALLOWED",
 			},
 		}
 		sec := scanner.New(automaton, opts)
