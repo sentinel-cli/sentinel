@@ -40,8 +40,13 @@ exclude_paths:
   - "*.lock"
   - "go.sum"
   - "package-lock.json"
-  # Add project-specific exclusions below:
   # - "path/to/safe/directory/**"
+
+# Global allowlist for custom patterns or exact strings.
+# Any finding matching these globs will be silently ignored.
+allowlist_patterns:
+  - "AKIAIOSFODNN7EXAMPLE"
+  - "*-dummy-token-*"
 
 # File extensions to always skip (case-insensitive).
 exclude_extensions:

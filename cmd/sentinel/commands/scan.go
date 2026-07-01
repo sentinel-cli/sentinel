@@ -41,7 +41,7 @@ independent of git staging.  Useful for auditing existing codebases.
 You can also use the '--history' flag to audit the entire Git commit tree.
 The output will prefix findings with their respective commit hashes (e.g. 3de60c5:file.go).
 
-You can bypass false positives by adding '// sentinel:ignore' to the preceding line.
+You can bypass false positives by adding '// sentinel:ignore' to the preceding line or at the end of the line.
 
 Examples:
   sentinel scan ./src
@@ -90,11 +90,12 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 
 	automaton := trie.Build(trie.BuiltinSignatures)
 	scanOpts := scanner.Options{
-		EntropyThreshold: cfg.EntropyThreshold,
-		MinSecretLength:  cfg.MinSecretLength,
-		DisableTrie:      cfg.DisableTiers.Trie,
-		DisableEntropy:   cfg.DisableTiers.Entropy,
-		DisableContext:   cfg.DisableTiers.Context,
+		EntropyThreshold:  cfg.EntropyThreshold,
+		MinSecretLength:   cfg.MinSecretLength,
+		DisableTrie:       cfg.DisableTiers.Trie,
+		DisableEntropy:    cfg.DisableTiers.Entropy,
+		DisableContext:    cfg.DisableTiers.Context,
+		AllowlistPatterns: cfg.AllowlistPatterns,
 	}
 	sec := scanner.New(automaton, scanOpts)
 

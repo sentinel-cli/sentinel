@@ -45,7 +45,7 @@ and other sensitive data using a three-tier detection pipeline:
   Tier 2 (ENTROPY)  — Shannon entropy analysis for unknown/novel secrets
   Tier 3 (CONTEXT)  — Context-aware false-positive suppression
   
-  Inline Suppression — Append '// sentinel:ignore' to the preceding line to ignore false positives.
+  Inline Suppression — Append '// sentinel:ignore' to the preceding line or at the end of the line to ignore false positives.
   Framework Support  — Compatible with the Python 'pre-commit' ecosystem.
 
 CLI Commands & Flags:

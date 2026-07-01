@@ -34,7 +34,7 @@ func NewRunCmd() *cobra.Command {
 It scans all staged changes for secrets using the three-tier detection pipeline.
 Exit code 0 means clean. Exit code 1 blocks the commit.
 
-You can bypass false positives by adding '// sentinel:ignore' to the preceding line.`,
+You can bypass false positives by adding '// sentinel:ignore' to the preceding line or at the end of the line.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runScan(configPath, format, failFast, verbose)
 		},

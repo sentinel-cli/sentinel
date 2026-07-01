@@ -490,18 +490,29 @@ scan_binary_files: false
 
 # Glob patterns to skip (relative to repository root).
 exclude_paths:
-  - "vendor/**"
-  - "node_modules/**"
-  - "*.lock"
-  - "go.sum"
+  - "vendor/**"              # vendored third-party code
+  - "node_modules/**"        # Node.js dependencies
+  - "*.lock"                 # lockfiles
+  - "go.sum"                 # Go checksums
+  - "third_party/**"         # additional third-party code
+  - "docs/examples/**"       # documentation examples
+  - "infra/terraform/**"     # use environment variables here instead
 
 # File extensions to always skip.
 exclude_extensions:
-  - ".png"
-  - ".jpg"
-  - ".gif"
-  - ".zip"
-  - ".wasm"
+  - ".png"                   # image
+  - ".jpg"                   # image
+  - ".gif"                   # image
+  - ".zip"                   # archive
+  - ".wasm"                  # WebAssembly binary
+  - ".pem"                   # if you intentionally commit public certificates
+  - ".pub"                   # SSH public keys (safe to commit)
+
+# Global allowlist for custom patterns or exact strings.
+# Any finding matching these globs will be silently ignored.
+allowlist_patterns:
+  - "AKIAIOSFODNN7EXAMPLE"
+  - "*-dummy-token-*"
 
 # Disable specific detection tiers (use with caution).
 disable_tiers:
@@ -538,11 +549,19 @@ If you encounter persistent false positives on a specific string, prefer **`excl
 ```yaml
 exclude_paths:
   - "vendor/**"              # vendored third-party code
+  - "node_modules/**"        # Node.js dependencies
+  - "*.lock"                 # lockfiles
+  - "go.sum"                 # Go checksums
   - "third_party/**"         # additional third-party code
   - "docs/examples/**"       # documentation examples
   - "infra/terraform/**"     # use environment variables here instead
 
 exclude_extensions:
+  - ".png"                   # image
+  - ".jpg"                   # image
+  - ".gif"                   # image
+  - ".zip"                   # archive
+  - ".wasm"                  # WebAssembly binary
   - ".pem"                   # if you intentionally commit public certificates
   - ".pub"                   # SSH public keys (safe to commit)
 ```
@@ -767,13 +786,13 @@ Sentinel's Tier 3 context filter eliminates false positives automatically. The s
 
 If a false positive persists:
 
-1. **Inline Suppression** — Add a `// sentinel:ignore` comment on the preceding line or at the end of the line. Sentinel will completely bypass the flagged string.
-2. **Check the file type** — move test data to files matching `*_test.go`, `tests/`, or `testdata/`.
-3. **Use a placeholder variable name** — `dummy_key`, `fake_token`, `mock_secret`, etc. are automatically suppressed by Tier 3.
-3. **Use an env-var reference** — `token: ${MY_TOKEN}` or `token: $MY_TOKEN` are recognized as safe placeholders.
-4. **Add the token to `allowlist_patterns`** in `.sentinel.yaml` — ideal for known test secrets or dummy variables (e.g. `sk_test_*`).
-5. **Add the path to `exclude_paths`** in `.sentinel.yaml`.
-6. **Raise `entropy_threshold`** slightly (e.g., `3.8`) if your codebase has many high-entropy non-secret identifiers.
+1. **Inline Suppression** — Add a `// sentinel:ignore` comment on the preceding line or at the end of the line to completely bypass the flagged string.
+2. **Global Allowlist** — Add custom patterns (globs or exact strings) to `allowlist_patterns` in `.sentinel.yaml` — ideal for known test secrets or dummy variables (e.g. `sk_test_*`).
+3. **Check the file type** — move test data to files matching `*_test.go`, `tests/`, or `testdata/`.
+4. **Use a placeholder variable name** — `dummy_key`, `fake_token`, `mock_secret`, etc. are automatically suppressed by Tier 3.
+5. **Use an env-var reference** — `token: ${MY_TOKEN}` or `token: $MY_TOKEN` are recognized as safe placeholders.
+6. **Add the path to `exclude_paths`** in `.sentinel.yaml`.
+7. **Raise `entropy_threshold`** slightly (e.g., `3.8`) if your codebase has many high-entropy non-secret identifiers.
 
 ---
 

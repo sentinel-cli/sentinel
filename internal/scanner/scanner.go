@@ -121,6 +121,24 @@ func (s *Scanner) isDuplicateMatch(matches []Finding, newMatch Finding) bool {
 	return false
 }
 
+// isAllowed checks if the token matches any of the glob patterns in the allowlist.
+func (s *Scanner) isAllowed(token string) bool {
+	if len(s.opts.AllowlistPatterns) == 0 {
+		return false
+	}
+	for _, pattern := range s.opts.AllowlistPatterns {
+		matched, err := filepath.Match(pattern, token)
+		if err == nil && matched {
+			return true
+		}
+		// Also allow exact substring match just in case
+		if pattern == token {
+			return true
+		}
+	}
+	return false
+}
+
 // fmtVerbRE matches printf-style format verbs so they can be rejected as tokens.
 var fmtVerbRE = regexp.MustCompile(`^%[+\-# 0-9]*[vTtbcdoOqxXUeEfFgGsSpw]`)
 
@@ -332,6 +350,9 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 					decision = sentinelcontext.Classify(filePath, string(rawLine), token)
 				}
 				if decision == sentinelcontext.Real {
+					if s.isAllowed(token) {
+						continue
+					}
 					newMatch := Finding{
 						FilePath:      filePath,
 						Line:          lineNum,
@@ -366,6 +387,9 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 						continue
 					}
 					if len(token) > 0 && token[0] == '%' && fmtVerbRE.MatchString(token) {
+						continue
+					}
+					if s.isAllowed(token) {
 						continue
 					}
 					decision := sentinelcontext.Real
@@ -424,6 +448,9 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 							if len(token) > 0 && token[0] == '%' && fmtVerbRE.MatchString(token) {
 								continue
 							}
+							if s.isAllowed(token) {
+								continue
+							}
 							decision := sentinelcontext.Real
 							if !s.opts.DisableContext {
 								decision = sentinelcontext.Classify(filePath, string(rawLine), token)
@@ -458,6 +485,9 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 				if cLen >= s.opts.MinSecretLength {
 					hits := entropy.Analyze(compVal, s.opts.EntropyThreshold, s.opts.MinSecretLength)
 					for _, h := range hits {
+						if s.isAllowed(h.Token) {
+							continue
+						}
 						decision := sentinelcontext.Real
 						if !s.opts.DisableContext {
 							decision = sentinelcontext.Classify(filePath, string(rawLine), h.Token)
@@ -499,6 +529,9 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 				}
 				hits := entropy.Analyze([]byte(tokStr), 4.0, s.opts.MinSecretLength)
 				for _, h := range hits {
+					if s.isAllowed(h.Token) {
+						continue
+					}
 					decision := sentinelcontext.Real
 					if !s.opts.DisableContext {
 						decision = sentinelcontext.Classify(filePath, string(rawLine), h.Token)
