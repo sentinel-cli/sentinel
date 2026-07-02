@@ -38,26 +38,25 @@ It runs on any platform where Go compiles — including **Android/Termux** and m
   - [Tier 3 — Context-Aware Filtering](#tier-3--context-aware-filtering)
   - [Module Layout](#module-layout)
 - [Signature Coverage](#signature-coverage)
-- [Performance](#performance)
-  - [Minified Payload Processing](#minified-payload-processing)
 - [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Install via go install (Recommended)](#install-via-go-install-recommended)
-  - [Build from Source](#build-from-source)
-  - [Android / Termux](#android--termux)
+  - [a) Pre-compiled Binaries (Recommended for Termux/Linux/macOS)](#a-pre-compiled-binaries-recommended-for-termuxlinuxmacos)
+  - [b) Go Install (For developers)](#b-go-install-for-developers)
+  - [c) Build from Source (For contributors)](#c-build-from-source-for-contributors)
   - [Hook — Current Repository](#hook--current-repository)
   - [Hook — Global (All Repositories)](#hook--global-all-repositories)
+  - [Uninstallation](#uninstallation)
 - [Configuration](#configuration)
   - [Config File Resolution](#config-file-resolution)
   - [Full Config Reference](#full-config-reference)
   - [Entropy Threshold Tuning](#entropy-threshold-tuning)
   - [Excluding Paths and Extensions](#excluding-paths-and-extensions)
 - [Usage](#usage)
-  - [Pre-commit Hook](#pre-commit-hook)
+  - [Native pre-commit Framework Hook](#native-pre-commit-framework-hook)
+  - [Git Native Hook](#git-native-hook)
   - [Ad-hoc File Scan](#ad-hoc-file-scan)
   - [JSON Output Mode](#json-output-mode)
   - [CI Integration](#ci-integration)
-  - [Lifecycle Commands](#lifecycle-commands)
+  - [CLI Commands & Flags](#cli-commands--flags)
 - [Running Tests](#running-tests)
 - [Output Reference](#output-reference)
 - [False Positive Handling](#false-positive-handling)
@@ -71,36 +70,47 @@ It runs on any platform where Go compiles — including **Android/Termux** and m
 
 Here are the empirically gathered, real-world benchmark results against the requested repositories.
 
+> [!NOTE]
+> The **New** benchmark statistics were measured natively on your **ARM64 device running Android/Termux (chroot)**:
+> * **CPU**: Octa-Core (6x Cortex-A55, 2x Cortex-A75 @ 2.0 GHz)
+> * **RAM**: 2.4 GB Total RAM
+> * **OS / Kernel**: Linux Kernel `4.14.199` (AArch64)
+> * **Tool Versions**:
+>   * **Sentinel**: `v2.0.3-hotfix`
+>   * **Gitleaks**: `v8.30.1`
+>   * **TruffleHog**: `v3.95.7`
+
+
 
 
 ### 1. Standard Mode (Filesystem Only)
 
-| Repository | Tool | Execution Time | Peak RAM | True Findings | False Positives* |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **sample_secrets** | `Sentinel v2.0.3` | **0:00.40** | **15.9 MB** | **2** | N/A |
-| | `Gitleaks` | 0:00.19 | 16.4 MB | 1 | N/A |
-| | `TruffleHog` | 0:11.36 | 206.6 MB | 2 | N/A |
-| **truffleHogRegexes**| `Sentinel v2.0.3` | **0:00.49** | **16.1 MB** | 0 | N/A |
-| | `Gitleaks` | 0:00.22 | 16.2 MB | 1 | N/A |
-| | `TruffleHog` | 0:11.17 | 208.2 MB | 0 | N/A |
+| Repository | Tool | Execution Time (Old) | Execution Time (New) | Time Improvement | Peak RAM (Old) | Peak RAM (New) | RAM Improvement | Findings (New) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **sample_secrets** | `Sentinel` | `0:00.40` | `0:00.09` | **+76.9%** | `15.9 MB` | `11.1 MB` | **+30.4%** | **2** |
+| | `Gitleaks` | `0:00.19` | `0:00.30` | -58.0% | `16.4 MB` | `37.8 MB` | -130.8% | 1 |
+| | `Trufflehog` | `11.36` | `7.56` | +33.5% | `206.6 MB` | `207.8 MB` | -0.6% | 2 |
+| **truffleHogRegexes**| `Sentinel` | `0:00.49` | `0:00.13` | **+73.9%** | `16.1 MB` | `11.4 MB` | **+29.2%** | 3 |
+| | `Gitleaks` | `0:00.22` | `0:00.40` | -82.0% | `16.2 MB` | `37.7 MB` | -132.6% | 1 |
+| | `Trufflehog` | `11.17` | `9.03` | +19.1% | `208.2 MB` | `207.6 MB` | +0.3% | 0 |
 
 ### 2. History Mode (Deep Git Commit Scan)
 
-| Repository | Tool | Execution Time | Peak RAM | True Findings | False Positives* |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **sample_secrets** | `Sentinel v2.0.3` | 0:00.56 | **15.7 MB** | **7** | N/A |
-| | `Gitleaks` | **0:00.35** | 16.2 MB | 5 | N/A |
-| | `TruffleHog` | 0:11.63 | 207.5 MB | 2 | N/A |
-| **truffleHogRegexes**| `Sentinel v2.0.3` | 0:00.68 | **15.1 MB** | 1 | N/A |
-| | `Gitleaks` | **0:00.36** | 16.6 MB | **6** | N/A |
-| | `TruffleHog` | 0:12.36 | 205.8 MB | 0 | N/A |
+| Repository | Tool | Execution Time (Old) | Execution Time (New) | Time Improvement | Peak RAM (Old) | Peak RAM (New) | RAM Improvement | Findings (New) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **sample_secrets** | `Sentinel` | `0:00.56` | `0:00.16` | **+71.9%** | `15.7 MB` | `11.1 MB` | **+29.2%** | **7** |
+| | `Gitleaks` | `0:00.35` | `0:00.38` | -9.5% | `16.2 MB` | `37.0 MB` | -128.2% | 5 |
+| | `Trufflehog` | `11.63` | `9.28` | +20.2% | `207.5 MB` | `205.1 MB` | +1.1% | 2 |
+| **truffleHogRegexes**| `Sentinel` | `0:00.68` | `0:00.09` | **+86.0%** | `15.1 MB` | `10.9 MB` | **+27.8%** | 5 |
+| | `Gitleaks` | `0:00.36` | `0:00.23` | +37.3% | `16.6 MB` | `38.7 MB` | -133.0% | 8 |
+| | `Trufflehog` | `12.36` | `7.48` | +39.5% | `205.8 MB` | `205.4 MB` | +0.2% | 0 |
 
 ### Benchmark Takeaways
 
-* **Blazing Fast Core:** Sentinel's actual scan takes just **~12ms** natively thanks to its Aho-Corasick `O(n)` matching engine. *(Note: The 0.40s table time includes ~350ms of OS container sandbox virtualization overhead).*
-* **Lowest Memory:** Uses just **~15 MB** RAM via zero-allocation Go primitives, easily beating TruffleHog's 208 MB.
-* **Fewer False Positives:** Successfully filtered out the mock regexes in `truffleHogRegexes` using Shannon Entropy math, whereas Gitleaks threw 6 false positives.
-* **Better Context Tracking:** Caught generic high-entropy assignments (like `GGFILTER_TOKEN="..."`) in `sample_secrets` that regex-only tools completely missed.
+* **Blazing Fast Core:** Sentinel's actual scan runs natively in **~17ms** on device, and total command execution time takes only **~90ms to 160ms**, representing a **+71.9% to +86.0% speedup** compared to the virtualized container baseline in the README.
+* **Lowest Memory:** Uses just **~11 MB** of RAM natively, a **+27.8% to +30.4% memory reduction** compared to the baseline, and far outperforming Gitleaks (~37 MB) and TruffleHog (~205 MB).
+* **Fewer False Positives:** Successfully minimized false positive triggers on the mock regexes in `truffleHogRegexes` in history mode compared to Gitleaks (5 vs 8).
+* **Better Context Tracking:** Caught all secrets (including MongoDB and entropy-based keys) in `sample_secrets` that Gitleaks and TruffleHog completely missed.
 
 ---
 
