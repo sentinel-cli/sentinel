@@ -1,8 +1,21 @@
 # Sentinel — Ultra-Fast Git Secret Scanner & Pre-Commit Hook
 
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│  ███████╗███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗      │
+│  ██╔════╝██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║      │
+│  ███████╗█████╗  ██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██║      │
+│  ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║      │
+│  ███████║███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗ │
+│  ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝ │
+│                                                                  │
+│            Pre-Commit Security Hook  │  v2.0.4                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
 <div align="center">
 
-![Sentinel Logo](logo.jpg)
+### 🏆 Egypt Qualified to FIFA World Cup Round of 16! 🇪🇬 ⚽
 
 **Enterprise-grade Git pre-commit secret detector, Gitleaks alternative, and high-performance credentials scanner written in Go.**
 
