@@ -1,15 +1,8 @@
 # Sentinel — Ultra-Fast Git Secret Scanner & Pre-Commit Hook
 
-```diff
--  ███████╗███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗
--  ██╔════╝██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║
-   ███████╗█████╗  ██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██║
-   ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║
-+  ███████║███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗
-+  ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
-```
-
 <div align="center">
+
+![Sentinel Logo](docs/logo.svg)
 
 **Enterprise-grade Git pre-commit secret detector, Gitleaks alternative, and high-performance credentials scanner written in Go.**
 
