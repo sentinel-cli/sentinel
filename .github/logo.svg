@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 160">
     <style>
         text {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
             font-size: 14px;
             fill: #24292f;
+            white-space: pre;
         }
         @media (prefers-color-scheme: dark) {
             text {
@@ -11,11 +12,13 @@
             }
         }
     </style>
-    <text x="50%" y="20" text-anchor="middle" xml:space="preserve">  ███████╗███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗</text>
-    <text x="50%" y="40" text-anchor="middle" xml:space="preserve">  ██╔════╝██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║</text>
-    <text x="50%" y="60" text-anchor="middle" xml:space="preserve">  ███████╗█████╗  ██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██║</text>
-    <text x="50%" y="80" text-anchor="middle" xml:space="preserve">  ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║</text>
-    <text x="50%" y="100" text-anchor="middle" xml:space="preserve">  ███████║███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗</text>
-    <text x="50%" y="120" text-anchor="middle" xml:space="preserve">  ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝</text>
-    <text x="50%" y="150" text-anchor="middle" xml:space="preserve">            Pre-Commit Security Hook  |  v2.0.4                   </text>
+    <g transform="translate(49, 0)">
+        <text x="0" y="20" xml:space="preserve">███████╗███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗</text>
+        <text x="0" y="40" xml:space="preserve">██╔════╝██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║</text>
+        <text x="0" y="60" xml:space="preserve">███████╗█████╗  ██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██║</text>
+        <text x="0" y="80" xml:space="preserve">╚════██║██╔══╝  ██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║</text>
+        <text x="0" y="100" xml:space="preserve">███████║███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗</text>
+        <text x="0" y="120" xml:space="preserve">╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝</text>
+        <text x="0" y="150" xml:space="preserve">          Pre-Commit Security Hook  |  v2.0.4                   </text>
+    </g>
 </svg>
