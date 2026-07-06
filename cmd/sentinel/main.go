@@ -59,6 +59,7 @@ CLI Commands & Flags:
   sentinel scan [path...]       Ad-hoc mode to scan arbitrary files or directories.
       -c, --config string       Path to config file.
       -f, --format string       Output format: pretty|json|plain|sarif.
+      -o, --output string       Write scan report directly to a file (preserving pretty logs).
       -r, --recursive           Scan directories recursively.
       -v, --verbose             Enable verbose output.
       --history                 Deep scan the entire git commit history.

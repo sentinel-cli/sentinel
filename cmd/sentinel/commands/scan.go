@@ -57,6 +57,9 @@ Examples:
   
   # Scan specific configuration files
   sentinel scan config.yaml secrets.env
+
+  # Scan and save report directly to a SARIF file (keeps pretty terminal logs)
+  sentinel scan -f sarif -o sentinel.sarif .
   
   # Scan the entire Git commit tree history of the current repository
   sentinel scan --history .`,
