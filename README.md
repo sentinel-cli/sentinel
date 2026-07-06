@@ -13,8 +13,6 @@
             Pre-Commit Security Hook  │  v2.0.4
 ```
 
-### 🏆 Egypt Qualified to FIFA World Cup Round of 16! 🇪🇬 ⚽
-
 **Enterprise-grade Git pre-commit secret detector, Gitleaks alternative, and high-performance credentials scanner written in Go.**
 
 [![CI Status](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml/badge.svg?v=2)](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml)
@@ -22,7 +20,6 @@
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&v=2)](https://go.dev)
 [![Go Reference](https://pkg.go.dev/badge/github.com/sentinel-cli/sentinel/v2.svg?v=2)](https://pkg.go.dev/github.com/sentinel-cli/sentinel/v2)
 [![License](https://img.shields.io/badge/license-AGPL_3.0-blue?v=2)](LICENSE)
-[![FIFA World Cup](https://img.shields.io/badge/FIFA_World_Cup-Egypt_Round_of_16_🇪🇬-red?style=flat&logo=soccer&v=2)](https://github.com/sentinel-cli/sentinel)
 
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%2FTermux-informational?v=2)](#installation)
 [![Repository Size](https://img.shields.io/github/repo-size/sentinel-cli/sentinel?color=success&logo=git&v=2)](https://github.com/sentinel-cli/sentinel)
@@ -85,7 +82,6 @@ Sentinel serves as a lightweight, developer-friendly **Gitleaks alternative** an
   - [Config File Resolution](#config-file-resolution)
   - [Full Config Reference](#full-config-reference)
   - [Entropy Threshold Tuning](#entropy-threshold-tuning)
-  - [Excluding Paths and Extensions](#excluding-paths-and-extensions)
 - [Usage](#usage)
   - [Native pre-commit Framework Hook](#native-pre-commit-framework-hook)
   - [Git Native Hook](#git-native-hook)
@@ -116,27 +112,27 @@ Here are the empirically gathered, real-world benchmark results against the requ
 >   * **Gitleaks**: `v8.30.1`
 >   * **TruffleHog**: `v3.95.7`
 
-### 1. Standard Mode (Filesystem Only)
+### 1. Standard Mode (Filesystem Scan)
 
-| Repository | Tool | Execution Time (Old) | Execution Time (New) | Time Improvement | Peak RAM (Old) | Peak RAM (New) | RAM Improvement | Findings (New) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **sample_secrets** | `Sentinel` | `0:00.40` | `0:00.02` | **+94.6%** | `15.9 MB` | `11.2 MB` | **+29.7%** | **2** |
-| | `Gitleaks` | `0:00.19` | `0:00.15` | **+20.6%** | `16.4 MB` | `37.6 MB` | -129.5% | 1 |
-| | `Trufflehog` | `11.36` | `7.26` | **+36.1%** | `206.6 MB` | `209.2 MB` | -1.3% | 2 |
-| **truffleHogRegexes**| `Sentinel` | `0:00.49` | `0:00.03` | **+94.8%** | `16.1 MB` | `11.8 MB` | **+26.6%** | **4** |
-| | `Gitleaks` | `0:00.22` | `0:00.21` | **+3.2%** | `16.2 MB` | `37.2 MB` | -129.9% | 1 |
-| | `Trufflehog` | `11.17` | `7.13` | **+36.1%** | `208.2 MB` | `207.8 MB` | +0.2% | 0 |
+| Repository | Tool | Execution Time | Peak RAM | Findings |
+| :--- | :--- | :--- | :--- | :--- |
+| **sample_secrets** | `Sentinel (v2.0.4)` | `20 ms` | `11.2 MB` | **2** |
+| | `Gitleaks (v8.30.1)` | `150 ms` | `37.6 MB` | 1 |
+| | `Trufflehog (v3.95.7)` | `7.26 s` | `209.2 MB` | 2 |
+| **truffleHogRegexes**| `Sentinel (v2.0.4)` | `30 ms` | `11.8 MB` | **4** |
+| | `Gitleaks (v8.30.1)` | `210 ms` | `37.2 MB` | 1 |
+| | `Trufflehog (v3.95.7)` | `7.13 s` | `207.8 MB` | 0 |
 
 ### 2. History Mode (Deep Git Commit Scan)
 
-| Repository | Tool | Execution Time (Old) | Execution Time (New) | Time Improvement | Peak RAM (Old) | Peak RAM (New) | RAM Improvement | Findings (New) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **sample_secrets** | `Sentinel` | `0:00.56` | `0:00.03` | **+94.2%** | `15.7 MB` | `10.9 MB` | **+30.4%** | **8** |
-| | `Gitleaks` | `0:00.35` | `0:00.17` | **+51.1%** | `16.2 MB` | `37.3 MB` | -130.0% | 5 |
-| | `Trufflehog` | `11.63` | `3.21` | **+72.4%** | `207.5 MB` | `192.6 MB` | **+7.2%** | 0 |
-| **truffleHogRegexes**| `Sentinel` | `0:00.68` | `0:00.04` | **+94.2%** | `15.1 MB` | `12.0 MB` | **+20.5%** | **6** |
-| | `Gitleaks` | `0:00.36` | `0:00.22` | **+38.9%** | `16.6 MB` | `40.1 MB` | -141.4% | 8 |
-| | `Trufflehog` | `12.36` | `3.24` | **+73.8%** | `205.8 MB` | `192.8 MB` | **+6.3%** | 0 |
+| Repository | Tool | Execution Time | Peak RAM | Findings |
+| :--- | :--- | :--- | :--- | :--- |
+| **sample_secrets** | `Sentinel (v2.0.4)` | `30 ms` | `10.9 MB` | **8** |
+| | `Gitleaks (v8.30.1)` | `170 ms` | `37.3 MB` | 5 |
+| | `Trufflehog (v3.95.7)` | `3.21 s` | `192.6 MB` | 0 |
+| **truffleHogRegexes**| `Sentinel (v2.0.4)` | `40 ms` | `12.0 MB` | **6** |
+| | `Gitleaks (v8.30.1)` | `220 ms` | `40.1 MB` | 8 |
+| | `Trufflehog (v3.95.7)` | `3.24 s` | `192.8 MB` | 0 |
 
 ### 3. Stress Test (200,000-Line Heavy Workload)
 
@@ -613,29 +609,7 @@ The entropy threshold is the primary false-positive tuning lever:
 
 If you encounter persistent false positives on a specific string, prefer **`exclude_paths`** or using a safe variable name (e.g. `dummy_api_key`) rather than raising the global threshold.
 
----
 
-### Excluding Paths and Extensions
-
-```yaml
-exclude_paths:
-  - "vendor/**"              # vendored third-party code
-  - "node_modules/**"        # Node.js dependencies
-  - "*.lock"                 # lockfiles
-  - "go.sum"                 # Go checksums
-  - "third_party/**"         # additional third-party code
-  - "docs/examples/**"       # documentation examples
-  - "infra/terraform/**"     # use environment variables here instead
-
-exclude_extensions:
-  - ".png"                   # image
-  - ".jpg"                   # image
-  - ".gif"                   # image
-  - ".zip"                   # archive
-  - ".wasm"                  # WebAssembly binary
-  - ".pem"                   # if you intentionally commit public certificates
-  - ".pub"                   # SSH public keys (safe to commit)
-```
 
 ---
 
