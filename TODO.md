@@ -30,8 +30,8 @@ This document serves as our public roadmap to explain upcoming enterprise featur
   *Status: Implemented*
   Validated Sentinel's custom multi-tier extraction engine head-to-head against Gitleaks and Trufflehog using GitGuardian's `sample_secrets` dataset, capturing 100% of historical secrets at an industry-leading 15MB RAM footprint.
 
-- [ ] **Core Engine Performance Optimizations**
-  *Status: Planned*
+- [x] **Core Engine Performance Optimizations**
+  *Status: Implemented*
   Further refine the core scanning engine and token extraction pipelines to reduce execution times and optimize memory consumption during large filesystem sweeps.
 
 - [ ] **Official GitHub Actions Integration**
