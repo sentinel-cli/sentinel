@@ -1,0 +1,49 @@
+name: 'Sentinel Security Scan'
+description: 'Scan Git repositories for secrets, keys, and credentials in CI/CD.'
+author: 'Khaled Hani'
+branding:
+  icon: 'shield'
+  color: 'slate'
+
+inputs:
+  version:
+    description: 'Sentinel version to install (e.g., latest, v2.0.4).'
+    required: false
+    default: 'latest'
+  args:
+    description: 'Arguments to pass to the Sentinel CLI (e.g., "." to scan staging/workspace, "--history" for git log scan).'
+    required: false
+    default: '.'
+  sarif:
+    description: 'Set to "true" to export scan results to a SARIF report named "sentinel-results.sarif".'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Go environment
+      uses: actions/setup-go@v5
+      with:
+        go-version: '>=1.22'
+        cache: true
+
+    - name: Install Sentinel CLI
+      shell: bash
+      run: |
+        echo "Installing Sentinel CLI..."
+        go install github.com/sentinel-cli/sentinel/v2/cmd/sentinel@${{ inputs.version }}
+        echo "Sentinel installation completed successfully."
+
+    - name: Run Sentinel Scan
+      shell: bash
+      run: |
+        if [ "${{ inputs.sarif }}" = "true" ]; then
+          echo "Running Sentinel scan with SARIF output..."
+          # Run scan and pipe output to SARIF file
+          sentinel scan ${{ inputs.args }} -f sarif > sentinel-results.sarif
+          echo "Scan finished. Results saved to sentinel-results.sarif"
+        else
+          echo "Running Sentinel scan..."
+          sentinel scan ${{ inputs.args }}
+        fi

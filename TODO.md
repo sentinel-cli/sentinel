@@ -34,6 +34,6 @@ This document serves as our public roadmap to explain upcoming enterprise featur
   *Status: Implemented*
   Further refine the core scanning engine and token extraction pipelines to reduce execution times and optimize memory consumption during large filesystem sweeps.
 
-- [ ] **Official GitHub Actions Integration**
-  *Status: Planned*
+- [x] **Official GitHub Actions Integration**
+  *Status: Implemented*
   Develop a reusable composite GitHub Action (`action.yml`) enabling developers to integrate Sentinel directly into their CI/CD pipelines in 3 lines of code. The action will compile Sentinel from source, configure cache, and scan target workspaces recursively.
