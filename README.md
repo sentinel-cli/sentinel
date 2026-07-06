@@ -118,10 +118,10 @@ Here are the empirically gathered, real-world benchmark results against the requ
 | :--- | :--- | :--- | :--- | :--- |
 | **sample_secrets** | `Sentinel (v2.0.4)` | `20 ms` | `11.2 MB` | **2** |
 | | `Gitleaks (v8.30.1)` | `150 ms` | `37.6 MB` | 1 |
-| | `Trufflehog (v3.95.7)` | `7.26 s` | `209.2 MB` | 2 |
+| | `Trufflehog (v3.95.7)` | `7.26 s` | `209.2 MB` | 1 |
 | **truffleHogRegexes**| `Sentinel (v2.0.4)` | `30 ms` | `11.8 MB` | **4** |
 | | `Gitleaks (v8.30.1)` | `210 ms` | `37.2 MB` | 1 |
-| | `Trufflehog (v3.95.7)` | `7.13 s` | `207.8 MB` | 0 |
+| | `Trufflehog (v3.95.7)` | `7.13 s` | `207.8 MB` | 1 |
 
 ### 2. History Mode (Deep Git Commit Scan)
 
@@ -129,10 +129,10 @@ Here are the empirically gathered, real-world benchmark results against the requ
 | :--- | :--- | :--- | :--- | :--- |
 | **sample_secrets** | `Sentinel (v2.0.4)` | `30 ms` | `10.9 MB` | **8** |
 | | `Gitleaks (v8.30.1)` | `170 ms` | `37.3 MB` | 5 |
-| | `Trufflehog (v3.95.7)` | `3.21 s` | `192.6 MB` | 0 |
+| | `Trufflehog (v3.95.7)` | `3.21 s` | `192.6 MB` | 1 |
 | **truffleHogRegexes**| `Sentinel (v2.0.4)` | `40 ms` | `12.0 MB` | **6** |
 | | `Gitleaks (v8.30.1)` | `220 ms` | `40.1 MB` | 8 |
-| | `Trufflehog (v3.95.7)` | `3.24 s` | `192.8 MB` | 0 |
+| | `Trufflehog (v3.95.7)` | `3.24 s` | `192.8 MB` | 1 |
 
 ### 3. Stress Test (200,000-Line Heavy Workload)
 
@@ -147,8 +147,8 @@ Evaluates scanner performance, memory stability, and secret detection accuracy u
 
 * **Blazing Fast Core:** Total command execution takes only **~20ms to 40ms** natively, a **+94.2% to +94.8% speedup** vs the containerized baseline — over **6× faster** than Gitleaks and **180× faster** than TruffleHog.
 * **Ultra-Low Memory:** Uses just **~11 to 12 MB** of RAM natively — **~27-30% less** than the old baseline, **3× less** than Gitleaks (~37-40 MB), and over **17× less** than TruffleHog (~193-209 MB).
-* **Best Secret Recall:** Caught **8 secrets** in `sample_secrets` history mode vs Gitleaks' 5 and TruffleHog's 0. Detected **4 secrets** in `truffleHogRegexes` standard mode vs Gitleaks' 1 and TruffleHog's 0.
-* **TruffleHog Zero Recall in History:** TruffleHog found **0 secrets** across all history-mode scans, while Sentinel caught up to **8** in the same repositories.
+* **Best Secret Recall:** Caught **8 secrets** in `sample_secrets` history mode vs Gitleaks' 5 and TruffleHog's 1. Detected **4 secrets** in `truffleHogRegexes` standard mode vs Gitleaks' 1 and TruffleHog's 1.
+* **TruffleHog Low Recall in History:** TruffleHog found only **1 secret** across all history-mode scans, while Sentinel caught up to **8** in the same repositories.
 
 ---
 
