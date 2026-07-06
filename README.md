@@ -11,7 +11,7 @@
   ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 ```
 
-**Enterprise-grade secret detector and Git pre-commit hook, written in Go.**
+**Enterprise-grade Git pre-commit secret detector, Gitleaks alternative, and high-performance credentials scanner written in Go.**
 
 [![CI](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml/badge.svg?v=2)](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/sentinel-cli/sentinel?color=3670A0&logo=github)](https://github.com/sentinel-cli/sentinel/releases)
@@ -803,6 +803,12 @@ Developed by **Khaled Hani** — [https://t.me/A245F](https://t.me/A245F)
 GNU Affero General Public License v3.0.
 
 Commercial SaaS deployment or distribution of a modified version without releasing the source under AGPL-3.0 is prohibited. See [LICENSE](LICENSE) for full terms.
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sentinel-cli/sentinel&type=Date)](https://star-history.com/#sentinel-cli/sentinel&Date)
 
 ---
 
