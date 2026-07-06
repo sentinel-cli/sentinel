@@ -1,4 +1,4 @@
-# Sentinel — Ultra-Fast Git Secret Scanner & Pre-Commit Hook
+# Sentinel — Git Secret Scanner & Pre-Commit Hook
 
 <div align="center">
 
@@ -9,165 +9,112 @@
   ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║
   ███████║███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗
   ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
-
-            Pre-Commit Security Hook  │  v2.0.4
 ```
 
-**Enterprise-grade Git pre-commit secret detector, Gitleaks alternative, and high-performance credentials scanner written in Go.**
+**Enterprise-grade secret detector and Git pre-commit hook, written in Go.**
 
-[![CI Status](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml/badge.svg?v=2)](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml)
-[![Latest Release](https://img.shields.io/github/v/release/sentinel-cli/sentinel?color=3670A0&logo=github&v=2)](https://github.com/sentinel-cli/sentinel/releases)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&v=2)](https://go.dev)
-[![Go Reference](https://pkg.go.dev/badge/github.com/sentinel-cli/sentinel/v2.svg?v=2)](https://pkg.go.dev/github.com/sentinel-cli/sentinel/v2)
-[![License](https://img.shields.io/badge/license-AGPL_3.0-blue?v=2)](LICENSE)
-
-[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%2FTermux-informational?v=2)](#installation)
-[![Repository Size](https://img.shields.io/github/repo-size/sentinel-cli/sentinel?color=success&logo=git&v=2)](https://github.com/sentinel-cli/sentinel)
-[![GitHub Stars](https://img.shields.io/github/stars/sentinel-cli/sentinel?style=flat&logo=github&color=gold&v=2)](https://github.com/sentinel-cli/sentinel/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/sentinel-cli/sentinel?style=flat&logo=github&color=blue&v=2)](https://github.com/sentinel-cli/sentinel/network/members)
-[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg?v=2)](https://github.com/avelino/awesome-go)
-
-
+[![CI](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml/badge.svg?v=2)](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/sentinel-cli/sentinel?color=3670A0&logo=github)](https://github.com/sentinel-cli/sentinel/releases)
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev)
+[![Reference](https://pkg.go.dev/badge/github.com/sentinel-cli/sentinel/v2.svg)](https://pkg.go.dev/github.com/sentinel-cli/sentinel/v2)
+[![License](https://img.shields.io/badge/license-AGPL_3.0-blue)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%2FTermux-informational)](#installation)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 </div>
 
 ---
 
-## 📺 Interactive Terminal Demo
+## Overview
 
-See Sentinel scan the famous `sample_secrets` repository and its entire commit history in milliseconds:
+**Sentinel** is a statically compiled, zero-dependency Git pre-commit hook and credentials scanner written in Go. It automatically blocks accidental commits of API keys, SSH private keys, cloud credentials, database connection strings, and other sensitive material before they reach version control.
 
-![Sentinel Demo](docs/demo.gif)
+Sentinel operates through a **three-tier detection pipeline** built for speed and accuracy:
 
-To stream the recording directly in your terminal, run:
-```bash
-asciinema play https://sentinel-cli.github.io/sentinel/demo.cast
-```
+| Tier | Engine | Purpose |
+|------|--------|---------|
+| 1 — PATTERN | Aho-Corasick automaton | Matches 68 known secret signatures in O(n) time |
+| 2 — ENTROPY | Shannon entropy analysis | Detects novel or unknown secrets by information density |
+| 3 — CONTEXT | Context classifier | Eliminates false positives from comments, tests, and placeholders |
+
+A finding must pass all three tiers before it is reported.
 
 ---
 
-**Sentinel** is a statically compiled, zero-dependency Git pre-commit hook and credentials scanner written in Go. It is designed to automatically prevent accidental commits and leaks of API keys, SSH private keys, cloud credentials (like AWS keys, GCP service accounts), database passwords, and other sensitive information. Sentinel uses a highly optimized three-tier detection pipeline designed to ensure near-zero scan latency and eliminate false positives.
+## Terminal Demo
 
-Sentinel serves as a lightweight, developer-friendly **Gitleaks alternative** and **git-secrets alternative**. It runs natively on all major operating systems — including **Android/Termux**, minimal Linux containers, macOS, and Windows.
+```
+asciinema play https://sentinel-cli.github.io/sentinel/demo.cast
+```
 
-> [!IMPORTANT]
-> **Latest Release (v2.0.4)**: This version includes a massive core engine rewrite, delivering:
-> * **Optimized Execution Speed**: Significantly faster scan times via zero-allocation pipeline refinements.
-> * **Expanded Detection Coverage**: New signatures for Django, WordPress, and JSON/YAML mappings.
-> * **Trie-Integrated Custom Signatures**: Native compilation of user-defined rules directly into the Aho-Corasick automaton for zero-overhead execution.
-> * **SARIF Output Format**: Added support (`-f sarif`) for native GitHub Code Scanning CI/CD integration.
+![Sentinel Demo](docs/demo.gif)
 
 ---
 
 ## Table of Contents
 
-- [Interactive Terminal Demo](#-interactive-terminal-demo)
-- [Performance and Benchmarking Analysis](#performance-and-benchmarking-analysis)
-- [Why Sentinel?](#why-sentinel)
+- [Performance](#performance)
+- [Why Sentinel](#why-sentinel)
 - [Architecture](#architecture)
-  - [Detection Pipeline](#detection-pipeline)
-  - [Tier 1 — Aho-Corasick Pattern Matching](#tier-1--aho-corasick-pattern-matching)
-  - [Tier 2 — Shannon Entropy Analysis](#tier-2--shannon-entropy-analysis)
-  - [Tier 3 — Context-Aware Filtering](#tier-3--context-aware-filtering)
-  - [Module Layout](#module-layout)
 - [Signature Coverage](#signature-coverage)
 - [Installation](#installation)
-  - [a) Pre-compiled Binaries (Recommended for Termux/Linux/macOS)](#a-pre-compiled-binaries-recommended-for-termuxlinuxmacos)
-  - [b) Go Install (For developers)](#b-go-install-for-developers)
-  - [c) Build from Source (For contributors)](#c-build-from-source-for-contributors)
-  - [Hook — Current Repository](#hook--current-repository)
-  - [Hook — Global (All Repositories)](#hook--global-all-repositories)
-  - [Uninstallation](#uninstallation)
 - [Configuration](#configuration)
-  - [Config File Resolution](#config-file-resolution)
-  - [Full Config Reference](#full-config-reference)
-  - [Entropy Threshold Tuning](#entropy-threshold-tuning)
 - [Usage](#usage)
-  - [Native pre-commit Framework Hook](#native-pre-commit-framework-hook)
-  - [Git Native Hook](#git-native-hook)
-  - [Ad-hoc File Scan](#ad-hoc-file-scan)
-  - [JSON Output Mode](#json-output-mode)
-  - [CI Integration](#ci-integration)
-  - [CLI Commands & Flags](#cli-commands--flags)
-- [Running Tests](#running-tests)
 - [Output Reference](#output-reference)
 - [False Positive Handling](#false-positive-handling)
-- [Roadmap (TODO)](#roadmap-todo)
+- [Running Tests](#running-tests)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## Performance and Benchmarking Analysis
+## Performance
 
-Here are the empirically gathered, real-world benchmark results against the requested repositories.
+The following benchmarks were measured on real-world repositories with Sentinel v2.0.4.
 
-> [!NOTE]
-> The **New** benchmark statistics were measured natively on your **ARM64 device running Android/Termux (chroot)**:
-> * **CPU**: Octa-Core (6x Cortex-A55, 2x Cortex-A75 @ 2.0 GHz)
-> * **RAM**: 2.4 GB Total RAM
-> * **OS / Kernel**: Linux Kernel `4.14.199` (AArch64)
-> * **Tool Versions**:
->   * **Sentinel**: `v2.0.4`
->   * **Gitleaks**: `v8.30.1`
->   * **TruffleHog**: `v3.95.7`
+### Filesystem Scan
 
-### 1. Standard Mode (Filesystem Scan)
+| Repository | Tool | Time | Peak RAM | Findings |
+|:---|:---|:---|:---|:---|
+| sample\_secrets | Sentinel v2.0.4 | 20 ms | 11.2 MB | **2** |
+| | Gitleaks v8.30.1 | 150 ms | 37.6 MB | 1 |
+| | TruffleHog v3.95.7 | 7.26 s | 209.2 MB | 1 |
+| truffleHogRegexes | Sentinel v2.0.4 | 30 ms | 11.8 MB | **4** |
+| | Gitleaks v8.30.1 | 210 ms | 37.2 MB | 1 |
+| | TruffleHog v3.95.7 | 7.13 s | 207.8 MB | 1 |
 
-| Repository | Tool | Execution Time | Peak RAM | Findings |
-| :--- | :--- | :--- | :--- | :--- |
-| **sample_secrets** | `Sentinel (v2.0.4)` | `20 ms` | `11.2 MB` | **2** |
-| | `Gitleaks (v8.30.1)` | `150 ms` | `37.6 MB` | 1 |
-| | `Trufflehog (v3.95.7)` | `7.26 s` | `209.2 MB` | 1 |
-| **truffleHogRegexes**| `Sentinel (v2.0.4)` | `30 ms` | `11.8 MB` | **4** |
-| | `Gitleaks (v8.30.1)` | `210 ms` | `37.2 MB` | 1 |
-| | `Trufflehog (v3.95.7)` | `7.13 s` | `207.8 MB` | 1 |
+### Git History Scan
 
-### 2. History Mode (Deep Git Commit Scan)
+| Repository | Tool | Time | Peak RAM | Findings |
+|:---|:---|:---|:---|:---|
+| sample\_secrets | Sentinel v2.0.4 | 30 ms | 10.9 MB | **8** |
+| | Gitleaks v8.30.1 | 170 ms | 37.3 MB | 5 |
+| | TruffleHog v3.95.7 | 3.21 s | 192.6 MB | 1 |
+| truffleHogRegexes | Sentinel v2.0.4 | 40 ms | 12.0 MB | **6** |
+| | Gitleaks v8.30.1 | 220 ms | 40.1 MB | 8 |
+| | TruffleHog v3.95.7 | 3.24 s | 192.8 MB | 1 |
 
-| Repository | Tool | Execution Time | Peak RAM | Findings |
-| :--- | :--- | :--- | :--- | :--- |
-| **sample_secrets** | `Sentinel (v2.0.4)` | `30 ms` | `10.9 MB` | **8** |
-| | `Gitleaks (v8.30.1)` | `170 ms` | `37.3 MB` | 5 |
-| | `Trufflehog (v3.95.7)` | `3.21 s` | `192.6 MB` | 1 |
-| **truffleHogRegexes**| `Sentinel (v2.0.4)` | `40 ms` | `12.0 MB` | **6** |
-| | `Gitleaks (v8.30.1)` | `220 ms` | `40.1 MB` | 8 |
-| | `Trufflehog (v3.95.7)` | `3.24 s` | `192.8 MB` | 1 |
-
-### 3. Stress Test (200,000-Line Heavy Workload)
-
-Evaluates scanner performance, memory stability, and secret detection accuracy under massive single-file workloads (4.5 MB payload containing 500 randomized secrets).
-
-| Tool / Release | Execution Time | Speed Improvement | Peak RAM | RAM Saved | Secrets Detected | Recall Gain |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `Sentinel (v2.0.3-hotfix)` | `0.441s` | - | `24.8 MB` | - | `275 / 500` | - |
-| **`Sentinel (v2.0.4 - New)`** | `0.367s` | **+16.7%** | `23.5 MB` | **+5.2%** | **374 / 500** | **+99 secrets** |
-
-### Benchmark Takeaways
-
-* **Blazing Fast Core:** Total command execution takes only **~20ms to 40ms** natively, a **+94.2% to +94.8% speedup** vs the containerized baseline — over **6× faster** than Gitleaks and **180× faster** than TruffleHog.
-* **Ultra-Low Memory:** Uses just **~11 to 12 MB** of RAM natively — **~27-30% less** than the old baseline, **3× less** than Gitleaks (~37-40 MB), and over **17× less** than TruffleHog (~193-209 MB).
-* **Best Secret Recall:** Caught **8 secrets** in `sample_secrets` history mode vs Gitleaks' 5 and TruffleHog's 1. Detected **4 secrets** in `truffleHogRegexes` standard mode vs Gitleaks' 1 and TruffleHog's 1.
-* **TruffleHog Low Recall in History:** TruffleHog found only **1 secret** across all history-mode scans, while Sentinel caught up to **8** in the same repositories.
+Sentinel is approximately **6x faster** than Gitleaks and **180x faster** than TruffleHog, using **3x less memory** than Gitleaks and **17x less** than TruffleHog.
 
 ---
 
-## Why Sentinel?
+## Why Sentinel
 
-| Feature | Sentinel | git-secrets | detect-secrets | truffleHog |
+| Feature | Sentinel | git-secrets | detect-secrets | TruffleHog |
 |---------|----------|-------------|----------------|------------|
-| Statically compiled (no runtime deps) | Yes | No (bash) | No (Python) | No (Python) |
-| ARM / Android / Termux support | Yes | Partial | No | No |
-| Aho-Corasick O(n) multi-pattern scan | Yes | No | No | No |
-| Shannon entropy detection | Yes | No | Yes | Yes |
-| Context-aware false positive suppression | Yes | No | Yes | Partial |
-| Base64 Single-Layer Extraction | Yes | No | Yes | Yes |
-| Termux-Aware TLS Self-Healing | Yes | No | No | No |
-| Sub-15ms scan (50 KB file) | Yes | Partial | No | No |
-| JSON & SARIF output for CI integration | Yes | No | Yes | Yes |
-| Zero external runtime dependencies | Yes | Yes | No | No |
+| Statically compiled, no runtime dependencies | Yes | No — bash | No — Python | No — Python |
+| ARM / Android / Termux native | Yes | Partial | No | No |
+| Aho-Corasick O(n) multi-pattern matching | Yes | No | No | No |
+| Shannon entropy analysis | Yes | No | Yes | Yes |
+| Context-aware false-positive suppression | Yes | No | Partial | Partial |
+| BIP-39 mnemonic seed phrase detection | Yes | No | No | No |
+| Single-layer Base64 decoding | Yes | No | Yes | Yes |
+| Concurrent file scanning | Yes | No | No | No |
+| SARIF output (GitHub Code Scanning) | Yes | No | Yes | Yes |
+| JSON output for automation | Yes | No | Yes | Yes |
 | Global hook installation | Yes | Yes | No | No |
 | Custom user-defined signatures | Yes | No | Yes | No |
+| Self-updating binary | Yes | No | No | No |
 
 ---
 
@@ -175,451 +122,304 @@ Evaluates scanner performance, memory stability, and secret detection accuracy u
 
 ### Detection Pipeline
 
-Every staged file passes through three sequential tiers. A finding must **survive all three tiers** to be reported, which eliminates the vast majority of false positives seen in single-pass tools.
-
 ```
- ┌──────────────────────────────────────────────────────────────────┐
- │                    git commit (staged changes)                    │
- └───────────────────────────┬──────────────────────────────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │   git interop (internal/git) │
-              │  ListStagedFiles()           │
-              │  GetStagedDiff() / GetBlob() │
-              └──────────────┬──────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │       Pre-flight filters     │
-              │  • Binary file skip          │
-              │  • Extension exclusion       │
-              │  • Path exclusion (glob)     │
-              │  • File size cap (10 MB)     │
-              └──────────────┬──────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │  TIER 1: Aho-Corasick Trie   │
-              │  (internal/trie)             │
-              │  O(n) multi-pattern search   │
-              │  60+ known secret prefixes   │
-              └──────────────┬──────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │  TIER 2: Shannon Entropy     │
-              │  (internal/entropy)          │
-              │  Base64 + hex token extract  │
-              │  Configurable threshold      │
-              └──────────────┬──────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │  TIER 3: Context Filter      │
-              │  (internal/context)          │
-              │  Comment / test file check   │
-              │  Placeholder / UUID check    │
-              │  Variable name heuristics    │
-              │  Assignment-aware extraction │
-              └──────────────┬──────────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │  Reporter (internal/reporter)│
-              │  Pretty / JSON / Plain       │
-              └──────────────┬──────────────┘
-                             │
-               exit 0 (CLEAN) or exit 1 (BLOCKED)
+  git commit (staged changes)
+         |
+  [Git Interop — internal/git]
+   git diff --cached --name-status
+   git diff --cached -- <path>
+   git show :<path>  (new files)
+         |
+  [Pre-flight Filters]
+   - Binary detection (null-byte scan of first 8 KB)
+   - Extension exclusion (case-insensitive)
+   - Path exclusion (glob matching)
+   - Size cap: files > 10 MB are skipped
+         |
+  [Tier 1 — Aho-Corasick Trie  —  internal/trie]
+   Built once at startup from 68 signatures
+   O(n) single-pass over each line
+   Case-insensitive matching
+   BIP-39 mnemonic detection (12–24 word phrases)
+   Single-layer Base64 decoding (for Kubernetes secrets etc.)
+         |
+  [Tier 2 — Shannon Entropy  —  internal/entropy]
+   Base64-alphabet token extraction per line
+   Hex-alphabet token extraction (even-length only)
+   Entropy threshold: 4.5 bits/symbol (Base64)
+   Scaled threshold for hex: threshold × (4.0 / 6.0), min 3.0
+   Tokens below min_secret_length (default 20) are skipped
+   Zero-entropy (all-identical) tokens are skipped
+         |
+  [Tier 3 — Context Filter  —  internal/context]
+   Suppression checks (in order):
+     1. File path — test files, docs, fixtures
+     2. Commented-out line — //, #, /*, <!-- etc.
+     3. UUID v4 pattern
+     4. Version string pattern
+     5. Environment variable placeholder ($VAR, ${VAR})
+     6. Config placeholder (<placeholder>, {{template}})
+     7. Variable name — dummy, fake, mock, sample, stub, etc.
+     8. Short pure-alpha token (< 12 chars)
+         |
+  [Reporter  —  internal/reporter]
+   Formats: pretty (ANSI color) | json | plain | sarif
+   JSON and SARIF go to stdout; pretty and plain go to stderr
+         |
+  exit 0  (CLEAN)   or   exit 1  (BLOCKED)
 ```
 
 ---
 
 ### Tier 1 — Aho-Corasick Pattern Matching
 
-**File:** [`internal/trie/trie.go`](internal/trie/trie.go)
+**Source:** [`internal/trie/trie.go`](internal/trie/trie.go)
 
-Tier 1 implements the Aho-Corasick string-matching automaton — a multi-pattern algorithm that scans a byte stream in O(n + m) time regardless of how many patterns are loaded.
+The automaton is built once at startup via `trie.Build(sigs)` and reused across all goroutines without locks. The hot scan path (`Automaton.Search`) performs zero heap allocations.
 
-**Automaton construction (once at startup):**
-1. All 60+ secret prefixes (e.g. `ghp_`, `AKIA`, `-----BEGIN RSA PRIVATE KEY-----`) are inserted into a trie.
-2. A BFS traversal computes **failure links** for each node, enabling resume-on-mismatch without backtracking.
-3. **Output links** are merged so overlapping patterns (e.g. `sk-` and `sk-proj-`) are both detected in a single pass.
+Construction is a two-phase process:
+1. All signature prefixes are inserted into a trie with lowercased keys.
+2. BFS computes failure links and merges output sets so overlapping prefixes (e.g. `sk-` and `sk-proj-`) are both reported in one pass.
 
-**Scanning (per file):**
-- Each byte is processed exactly once via O(1) state transitions.
-- All patterns are lowercased at build time — matching is case-insensitive.
-- A pre-built **newline index** enables O(log n) line-number lookup via binary search.
-- Detects secrets leaked inside **unstructured kernel panic logs**, memory dumps, and base64 payloads without relying on variable assignments.
-- Evaluates raw plain-text explicitly for 12-to-24 word **BIP-39 Seeds**, capturing secrets dumped loosely in `.txt` or `.md` files.
-- Extracts multiple distinct secrets per line, reducing false negatives in minified JavaScript or single-line config files.
-- **Deduplication:** Resolves overlaps between Pattern hits and Entropy hits, prioritizing strict pattern signatures.
-- Now natively detects **PEM Certificates** (RSA/Private Keys) even across multi-line payloads.
+Line numbers are tracked incrementally during the scan; `LineContent` is capped at 512 bytes per match.
 
-**Auto-Updater Engine:**
-- Employs a custom **UDP DNS Resolver (8.8.8.8:53)** to bypass OS-level IPv6 misconfigurations and Loopback failures during background updates.
+**Additional detection handled at the pipeline level** (in `scanner.go`):
+- **BIP-39 mnemonics** — the line is tested for 12, 15, 18, 21, or 24 words, all validated against the 2048-word dictionary in `internal/trie/bip39.go`.
+- **Single-layer Base64 decoding** — when a value extracted from an assignment is a valid standard Base64 string, it is decoded in-memory and re-fed through the trie. This catches secrets stored in Kubernetes Secret manifests and similar encoded forms.
+- **Blob aggregation** (`aggregateBlobs`) — three or more consecutive lines of the same high-entropy class (`high-entropy-base64` or `high-entropy-hex`) are collapsed into one `CRITICAL` finding labeled `massive-<kind>-blob` to prevent alert fatigue.
+- **Deduplication** — if a generic-signature hit and a specific-signature hit refer to the same token, the generic finding is promoted to the specific signature ID and severity.
 
 ---
 
 ### Tier 2 — Shannon Entropy Analysis
 
-**File:** [`internal/entropy/entropy.go`](internal/entropy/entropy.go)
+**Source:** [`internal/entropy/entropy.go`](internal/entropy/entropy.go)
 
-Tier 2 catches secrets without known prefixes — raw cryptographic keys, custom tokens, long passwords — by measuring the **information density** of candidate string tokens.
-
-**Shannon entropy formula:**
+Shannon entropy measures the information density of a byte sequence:
 
 ```
-H(X) = - Σ P(xᵢ) · log₂(P(xᵢ))
+H(X) = - sum over i of P(xi) * log2(P(xi))
 ```
 
-Where P(xᵢ) is the frequency of byte value xᵢ in the token. A perfectly uniform 256-symbol distribution yields **8.0 bits/symbol**. English prose yields ~3.5. A 32-byte random Base64 secret yields **~5.5–6.5**.
+| Range | Interpretation |
+|-------|----------------|
+| 0.0 | All bytes identical |
+| ~3.5 | English prose |
+| ~5.5 – 6.5 | Cryptographically random Base64 secret |
+| 8.0 | Perfectly uniform 256-symbol distribution |
 
-**Token extraction:**
-- Contiguous runs of **Base64-alphabet** chars (`A-Za-z0-9+/=_-`) and **hex-alphabet** chars (`0-9a-fA-F`) are extracted per line.
-- Tokens shorter than `min_secret_length` (default: 20) are skipped.
-- Tokens with all-identical characters (zero entropy) are skipped.
-- Hex tokens must have even length to resemble real hashes.
-- Only tokens exceeding `entropy_threshold` (default: 4.5 bits) advance to Tier 3.
+Sentinel extracts two classes of tokens per line:
+
+- **Base64 tokens** — contiguous runs of `A-Za-z0-9+/=_-`; requires entropy >= `entropy_threshold` (default 4.5).
+- **Hex tokens** — contiguous runs of `0-9a-fA-F`; must have even length; uses a scaled threshold of `entropy_threshold * (4.0 / 6.0)` with a minimum floor of 3.0.
+
+Tokens from pure Java-style identifiers (all letters, dots, and underscores) and zero-entropy (all-identical) tokens are discarded before entropy is computed.
 
 ---
 
 ### Tier 3 — Context-Aware Filtering
 
-**File:** [`internal/context/context.go`](internal/context/context.go)
+**Source:** [`internal/context/context.go`](internal/context/context.go)
 
-Tier 3 is the **false positive elimination layer**. It inspects the structural context of each candidate finding and returns one of the following decisions:
+The classifier inspects the file path, the full line text, and the extracted token. It returns one of seven decisions:
 
-| Decision | Condition | Example |
-|----------|-----------|---------|
-| `Real` | None of the below apply | Production API key in `config.go` |
-| `SafeComment` | Line starts with `//`, `#`, `*`, `<!--`, etc. | `# old_key = "ghp_..."` |
-| `SafeTestFile` | Path contains `_test.go`, `tests/`, `fixtures/`, `.md`, etc. | `auth_test.go` |
-| `SafeVariableName` | Line contains `dummy`, `fake`, `mock`, `placeholder`, etc. | `dummy_api_key := "..."` |
-| `SafePlaceholder` | Token matches `$VAR`, `${VAR}`, `<placeholder>`, `{{template}}` | `token: ${MY_TOKEN}` |
-| `SafeUUID` | Token matches UUID v4 format | `id = "550e8400-e29b-..."` |
-| `SafeVersionString` | Token matches a semantic version pattern | `"1.23.456-beta"` |
+| Decision | Condition |
+|----------|-----------|
+| `Real` | None of the suppression checks matched — report the finding |
+| `SafeComment` | Line begins with `//`, `#`, `*`, `/*`, `<!--`, `--`, `;`, `%`, or `!` |
+| `SafeTestFile` | Path ends with `_test.go`, `_spec.rb`, `.test.js`, `.spec.ts`, `.md`, `.rst`, or contains a directory named `test`, `tests`, `testdata`, `fixtures`, `__tests__`, `__mocks__`, `mock`, `mocks`, `sample`, `samples`, `docs`, `doc` |
+| `SafeVariableName` | Variable name (text left of `=` or `:`) contains: `dummy`, `fake`, `mock`, `placeholder`, `sample`, `fixture`, `stub`, `lorem`, `foobar`, `your_`, `your-`, `insert_`, `replace_`, `changeme`, `redacted`, `sanitized`, `censored` |
+| `SafePlaceholder` | Token matches `$VAR`, `${VAR}`, `<something>`, `[[something]]`, or `{{something}}` |
+| `SafeUUID` | Token matches the UUID v4 pattern `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `SafeVersionString` | Token starts with a digit-dot-digit-dot-digit sequence |
 
-Only `Real` findings are reported. Additionally, the scanner's **assignment-aware value extraction** ensures that:
-- Format strings (e.g. `fmt.Printf("token=%s\n", v)`) are never flagged.
-- PascalCase identifiers matching short prefixes (e.g. `ACAccountSID`) are rejected.
-- SQL template placeholders (e.g. `password=?`) are not treated as secrets.
-- English prose in log messages does not trigger entropy analysis.
-- **Minified JS files** with multiple statements per line are parsed directionally backward from the token to find the exact nearest variable context, avoiding false suppressions from adjacent dummy variables.
+Only `Real` findings are passed to the reporter.
+
+The scanner additionally rejects tokens that:
+- Match a `printf`-style format verb (e.g., `%s`, `%v`, `%d`).
+- Are identical to their signature prefix (empty secret material).
+- Contain regex metacharacters `[`, `]`, `{`, `}`, `(?:`, or `.*`.
+- For short prefixes (<= 3 bytes): the suffix is a pure PascalCase/CamelCase identifier with no non-alphanumeric characters.
+
+---
+
+### Inline Suppression
+
+Any line containing `sentinel:ignore` — whether the annotation appears on the same line or on the preceding comment line — is excluded from scanning.
+
+Supported annotation styles:
+
+```go
+// sentinel:ignore
+apiKey := "sk_live_realvalue..."
+
+apiKey := "sk_live_realvalue..." // sentinel:ignore
+```
+
+```bash
+# sentinel:ignore
+API_KEY="sk_live_realvalue..."
+```
+
+```html
+<!-- sentinel:ignore -->
+<secret>sk-ant-api03-...</secret>
+```
+
+A same-line `sentinel:ignore` suppresses only that line. A comment-line annotation suppresses the immediately following line.
 
 ---
 
 ### Module Layout
 
-```text
+```
 sentinel/
 ├── cmd/
 │   └── sentinel/
 │       ├── commands/
-│       │   ├── helpers.go           # Shared exec helper
-│       │   ├── install.go           # Pre-commit hook installation
-│       │   ├── run.go               # Pre-commit hook entry point
-│       │   ├── scan.go              # Ad-hoc file and directory scanner
-│       │   ├── uninstall.go         # Safe hook removal
-│       │   ├── update.go            # OTA binary self-updater
-│       │   └── version.go           # Build metadata command
-│       └── main.go                  # CLI root
+│       │   ├── helpers.go        shared CLI helper (executeCommand)
+│       │   ├── install.go        sentinel install — hook writer
+│       │   ├── run.go            sentinel run — pre-commit entry point
+│       │   ├── scan.go           sentinel scan — ad-hoc / history scanner
+│       │   ├── uninstall.go      sentinel uninstall — full cleanup
+│       │   ├── update.go         sentinel update — OTA self-updater
+│       │   └── version.go        sentinel version — build metadata
+│       └── main.go               Cobra CLI root; SSL bootstrap for Termux
 │
-├── docs/
-│   ├── app.js                       # Simple scroll animations controller
-│   ├── index-ar.html                # Arabic translated landing page (RTL)
-│   ├── index.html                   # Main English landing page (LTR)
-│   └── style.css                    # Dual-language minimalist stylesheet
+├── docs/                         GitHub Pages landing site (HTML/CSS/JS)
 │
 ├── internal/
-│   ├── config/
-│   │   └── config.go                # YAML configuration loader
-│   ├── context/
-│   │   └── context.go               # Tier 3 context classifier
-│   ├── entropy/
-│   │   └── entropy.go               # Tier 2 Shannon entropy calculator
-│   ├── git/
-│   │   └── git.go                   # Git interop (staged files, diffs)
-│   ├── reporter/
-│   │   └── reporter.go              # JSON/Plain output renderer
-│   ├── scanner/
-│   │   └── scanner.go               # Three-tier pipeline orchestrator
+│   ├── config/config.go          YAML loader and validator; all defaults
+│   ├── context/context.go        Tier 3 context classifier
+│   ├── entropy/entropy.go        Tier 2 Shannon entropy engine
+│   ├── git/git.go                Git subprocess wrappers
+│   ├── reporter/reporter.go      Pretty / JSON / Plain / SARIF renderer
+│   ├── scanner/scanner.go        Three-tier pipeline orchestrator (stateless)
 │   ├── trie/
-│   │   ├── bip39.go                 # BIP-39 mnemonic word list
-│   │   └── trie.go                  # Tier 1 Aho-Corasick automaton
-│   └── updater/
-│       └── updater.go               # Background release-check
+│   │   ├── bip39.go              2048-word BIP-39 dictionary + init map
+│   │   └── trie.go               Aho-Corasick automaton + 68 builtin signatures
+│   └── updater/updater.go        Background update check (once per 24 hours)
 │
 ├── pkg/
-│   └── version/
-│       └── version.go               # Dynamic build metadata
+│   └── version/version.go        Build metadata; injected via ldflags at build time
 │
-├── tests/
-│   ├── context_test.go              # Tier 3 unit tests
-│   ├── doc.go                       # Package declaration
-│   ├── entropy_test.go              # Tier 2 unit tests
-│   ├── reporter_test.go             # SARIF output validation tests
-│   ├── scanner_test.go              # End-to-end pipeline tests
-│   └── trie_test.go                 # Tier 1 unit tests
-│
-├── scripts/
-│   ├── build.sh                     # Cross-platform build script
-│   └── test.sh                      # Test runner with coverage report
-│
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                   # CI pipeline
-│       └── coverage.yml             # Code coverage pipeline
-│
-├── .gitignore
-├── .sentinel.yaml.example           # Annotated config template
-├── CHANGELOG.md
-├── CLA.md
-├── LICENSE
-├── Makefile                         # Developer targets
-├── README.md
-├── go.mod
-└── go.sum
+├── tests/                        Integration and unit tests for all tiers
+├── scripts/                      build.sh, test.sh
+├── .github/workflows/            CI and coverage pipelines
+├── .sentinel.yaml.example        Annotated reference configuration
+├── Makefile                      Developer targets: build, test, bench, cover, lint
+└── go.mod                        Module: github.com/sentinel-cli/sentinel/v2; Go 1.22+
 ```
 
 ---
 
 ## Signature Coverage
 
-Sentinel's Tier 1 catalogue detects **70+ secret families** across all major platforms:
+Sentinel's Tier 1 automaton contains **68 builtin signatures** spanning all major credential families. Custom signatures can be appended via the config file and are compiled into the same automaton at startup.
 
-| Category | Services Covered |
-|----------|-----------------|
-| **VCS Tokens** | GitHub PAT (classic & fine-grained), GitHub OAuth, GitHub App/Refresh, GitLab PAT, GitLab Pipeline, GitLab Runner |
-| **Cloud** | AWS Access Key / STS / MFA, GCP Service Account (JSON), GCP API Key, DigitalOcean, Cloudflare, Vercel |
-| **AI / ML** | OpenAI (classic & project key), Anthropic, HuggingFace |
-| **Communication** | Slack (bot / user / workspace / refresh), Twilio, SendGrid, Mailgun |
-| **Payment** | Stripe (live secret, live restricted, test) |
-| **E-commerce** | Shopify (custom / private / access tokens) |
-| **Infrastructure** | HashiCorp Vault (service & batch tokens), PostgreSQL DSN, MySQL DSN, MongoDB, Redis |
-| **Crypto** | BIP-39 mnemonic seed phrases (12-word detection) |
-| **Private Keys** | RSA, EC, OpenSSH, PKCS#8, PGP, DSA (all PEM formats) |
-| **Package Registries** | npm |
-| **Generic** | `password=`, `secret=`, `api_key=`, `token=` assignment patterns & JSON/YAML colon-mappings (e.g. `password:`, `secret:`) |
-| **Web Frameworks** | Django (`SECRET_KEY`), WordPress (Salts & Keys, e.g. `AUTH_KEY`, `SECURE_AUTH_KEY`, `NONCE_SALT`) |
-
----
-
-
+| Category | Signatures |
+|----------|-----------|
+| GitHub | Classic PAT (`ghp_`), OAuth (`gho_`), App Installation (`ghs_`), Refresh (`ghr_`), Fine-grained PAT (`github_pat_`) |
+| GitLab | Personal Access Token (`glpat-`), Pipeline Trigger (`glptt-`), Runner Registration (`GR1348941`) |
+| AWS | Access Key ID (`AKIA`, validator: `AKIA[0-9A-Z]{16}`), MFA Device (`ABIA`), STS Temporary Key (`ASIA`) |
+| Google Cloud | Service Account JSON (`"type": "service_account"`), API Key (`AIzaSy`), OAuth Client ID suffix (`.apps.googleusercontent.com`) |
+| Slack | Bot (`xoxb-`), User (`xoxp-`), Workspace (`xoxa-`), Refresh (`xoxr-`) |
+| Stripe | Live Secret (`sk_live_`), Live Restricted (`rk_live_`), Test Secret (`sk_test_`) |
+| OpenAI | Classic key (`sk-`), Project key (`sk-proj-`) |
+| Anthropic | API key (`sk-ant-`) |
+| Twilio | Account SID (`AC`, regex-validated), Auth Token (`SK`, regex-validated) |
+| SendGrid | API key (`SG.`, regex-validated: `SG.[a-zA-Z0-9_-]{22}.[a-zA-Z0-9_-]{43}`) |
+| Mailgun | API key (`key-`) |
+| npm | Automation/Publish token (`npm_`) |
+| JWT | JSON Web Token (`eyJ`, strict 3-part dot-separated regex) |
+| Private Keys (PEM) | RSA, EC, OpenSSH, PKCS#8, PGP, DSA — all `-----BEGIN ... PRIVATE KEY-----` variants |
+| Databases | PostgreSQL DSN (`postgresql://`), MySQL (`mysql://`), MongoDB SRV (`mongodb+srv://`), MongoDB plain (`mongodb://`), Redis (`redis://:@`) |
+| HashiCorp Vault | Service token (`hvs.`), Batch token (`hvb.`) |
+| DigitalOcean | Personal Access Token (`dop_v1_`) |
+| Vercel | API Token (`vercel_`) |
+| Cloudflare | API Token (`CF_`) |
+| HuggingFace | API Token (`hf_`) |
+| Shopify | Custom App (`shpca_`), Private App (`shppa_`), Access Token (`shpat_`) |
+| Generic assignments | `password=`, `secret=`, `api_key=`, `token=` |
+| Generic YAML / JSON | `password:`, `secret:`, `api_key:`, `token:` |
+| Django | `SECRET_KEY =` |
+| WordPress | `AUTH_KEY`, `SECURE_AUTH_KEY`, `LOGGED_IN_KEY`, `NONCE_KEY`, `AUTH_SALT`, `SECURE_AUTH_SALT`, `LOGGED_IN_SALT`, `NONCE_SALT` |
+| Crypto Wallets | BIP-39 mnemonic (12 / 15 / 18 / 21 / 24 words, all validated against 2048-word dictionary) |
 
 ---
 
 ## Installation
 
-Sentinel provides flexible installation options depending on your environment.
+### Pre-compiled Binary (Recommended)
 
-### a) Pre-compiled Binaries (Recommended for Termux/Linux/macOS)
-
-The fastest way to install Sentinel without needing Go installed on your system. This is the primary method for Termux/Android users.
-
-1. Navigate to the [Releases page](https://github.com/sentinel-cli/sentinel/releases) and find the URL for the latest `<version>` and your `<architecture>` (e.g., `linux-arm64`, `darwin-amd64`).
-2. Download and install using your terminal:
+Download the binary for your platform from the [Releases page](https://github.com/sentinel-cli/sentinel/releases):
 
 ```bash
-# 1. Download the binary
-wget https://github.com/sentinel-cli/sentinel/releases/download/<version>/sentinel-<version>-<architecture> -O sentinel
-
-# 2. Make the binary executable
+# Replace <version> and <arch> (e.g. linux-amd64, linux-arm64, darwin-amd64)
+wget https://github.com/sentinel-cli/sentinel/releases/download/<version>/sentinel-<version>-<arch> -O sentinel
 chmod +x sentinel
 
-# 3. Move to a system bin path (e.g. $PREFIX/bin for Termux, or /usr/local/bin for Linux/macOS)
+# Linux / macOS
+mv sentinel /usr/local/bin/
+
+# Termux (Android)
 mv sentinel $PREFIX/bin/
 
-# 4. Verify installation
 sentinel version
 ```
 
----
-
-### b) Go Install (For developers)
-
-If you already have Go installed and properly configured in your `PATH`, you can fetch and compile the latest release directly:
+### Go Install
 
 ```bash
 go install github.com/sentinel-cli/sentinel/v2/cmd/sentinel@latest
 ```
-*(Note: Ensure `$(go env GOPATH)/bin` is added to your system `$PATH`)*
 
----
+Requires `$(go env GOPATH)/bin` in `$PATH`.
 
-### c) Build from Source (For contributors)
-
-To build Sentinel manually with full dynamic version tags:
+### Build from Source
 
 ```bash
 git clone https://github.com/sentinel-cli/sentinel.git
 cd sentinel
-
-# Build via Makefile which injects standard ldflags
 make build
-
-# The binary will be output to dist/sentinel
 ./dist/sentinel version
 ```
 
+The `Makefile` injects `Version`, `Commit`, and `Date` via `-ldflags` into `pkg/version/version.go`.
+
 ---
 
-### Hook — Current Repository
+### Installing the Git Hook
 
-Install the pre-commit hook for the **current git repository only**:
-
+**Current repository:**
 ```bash
-# From inside any git repository
-sentinel install
-
-# Force-overwrite an existing hook
-sentinel install --force
+sentinel install          # writes .git/hooks/pre-commit
+sentinel install --force  # overwrites an existing hook
 ```
 
-This writes a POSIX-compatible shell script to `.git/hooks/pre-commit` that invokes `sentinel run` on every `git commit`.
-
----
-
-### Hook — Global (All Repositories)
-
-Protect **every repository** on your machine with a single command:
-
+**All repositories (global):**
 ```bash
 sentinel install --global
+# Creates ~/.config/sentinel/hooks/pre-commit
+# Sets: git config --global core.hooksPath ~/.config/sentinel/hooks
 ```
 
-This creates `~/.config/sentinel/hooks/pre-commit` and sets:
-```
-git config --global core.hooksPath ~/.config/sentinel/hooks
-```
-
-All existing and future repositories will be scanned automatically.
-
-**To remove the global hook only:**
+**Remove global hook only:**
 ```bash
 git config --global --unset core.hooksPath
 ```
 
----
-
-### Uninstallation
-
-To completely remove Sentinel from your system, including the executable binary, global git hooks, and local cached metadata, simply run:
-
+**Full uninstall (binary + hooks + config directory):**
 ```bash
 sentinel uninstall
 ```
 
-This command works seamlessly whether you installed via `go install` or downloaded a pre-compiled binary (e.g. in Termux or Linux `$PATH`). It uses dynamic path resolution to safely uproot the tool and all its footprints.
-
 ---
 
-## Configuration
-
-### Config File Resolution
-
-Sentinel searches for `.sentinel.yaml` in this order:
-
-1. Path specified via `--config` / `-c` flag
-2. **Repository root** (current working directory)
-3. **Home directory** (`~/.sentinel.yaml`)
-
-With no config file present, all built-in defaults apply — Sentinel works correctly out of the box with zero configuration.
-
----
-
-### Full Config Reference
-
-Copy the annotated example into your repository:
-
-```bash
-cp .sentinel.yaml.example .sentinel.yaml
-```
+### pre-commit Framework
 
 ```yaml
-# Shannon entropy threshold (bits/symbol).
-# Default: 3.5 — catches most real secrets with minimal false positives.
-entropy_threshold: 3.5
-
-# Minimum token length considered for entropy analysis.
-# Default: 20 characters.
-min_secret_length: 20
-
-# Skip files larger than this size. Default: 10485760 (10 MB).
-max_file_size_bytes: 10485760
-
-# Attempt to scan binary files? Default: false.
-scan_binary_files: false
-
-# Glob patterns to skip (relative to repository root).
-exclude_paths:
-  - "vendor/**"              # vendored third-party code
-  - "node_modules/**"        # Node.js dependencies
-  - "*.lock"                 # lockfiles
-  - "go.sum"                 # Go checksums
-  - "third_party/**"         # additional third-party code
-  - "docs/examples/**"       # documentation examples
-  - "infra/terraform/**"     # use environment variables here instead
-
-# File extensions to always skip.
-exclude_extensions:
-  - ".png"                   # image
-  - ".jpg"                   # image
-  - ".gif"                   # image
-  - ".zip"                   # archive
-  - ".wasm"                  # WebAssembly binary
-  - ".pem"                   # if you intentionally commit public certificates
-  - ".pub"                   # SSH public keys (safe to commit)
-
-# Global allowlist for custom patterns or exact strings.
-# Any finding matching these globs will be silently ignored.
-allowlist_patterns:
-  - "AKIAIOSFODNN7EXAMPLE"
-  - "*-dummy-token-*"
-
-# Disable specific detection tiers (use with caution).
-disable_tiers:
-  trie: false
-  entropy: false
-  context: false     # Disabling this WILL produce many false positives.
-
-# Stop on the first finding (faster fail in CI).
-fail_fast: false
-
-# Enable verbose debug output.
-verbose: false
-
-# Custom user-defined secret signatures (Aho-Corasick matching).
-# Each custom signature must specify a unique 'id' and a search 'prefix'.
-# You can optionally specify a validation 'regex' and rule 'severity'.
-custom_signatures:
-  - id: "my-custom-key"
-    description: "Proprietary internal API credential key"
-    prefix: "mycustom_"
-    severity: "HIGH"
-    regex: "^mycustom_[a-zA-Z0-9]{16}$"
-```
-
----
-
-### Entropy Threshold Tuning
-
-The entropy threshold is the primary false-positive tuning lever:
-
-| Threshold | Effect |
-|-----------|--------|
-| `3.0` | Very sensitive — may flag base32 IDs and short low-entropy passwords |
-| `3.5` | **Recommended default** — catches the overwhelming majority of real secrets |
-| `4.0` | Stricter — may miss weak passwords but very low noise |
-| `4.5+` | Only flags cryptographically strong random secrets |
-
-If you encounter persistent false positives on a specific string, prefer **`exclude_paths`** or using a safe variable name (e.g. `dummy_api_key`) rather than raising the global threshold.
-
-
-
----
-
-## Usage
-
-### Native `pre-commit` Framework Hook
-
-Sentinel fully supports the Python `pre-commit` ecosystem. Add this to your `.pre-commit-config.yaml` to enforce scanning across your entire team automatically:
-
-```yaml
+# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/sentinel-cli/sentinel
     rev: v2.0.4
@@ -627,55 +427,237 @@ repos:
       - id: sentinel
 ```
 
-### Git Native Hook
+---
 
-After running `sentinel install`, the hook fires automatically on every `git commit`:
+## Configuration
 
-```bash
-git add src/api_client.go
-git commit -m "add API client"
-# Sentinel scans staged changes here — blocks if secrets are found
+### Resolution Order
+
+1. Path supplied via `--config` / `-c`
+2. `.sentinel.yaml` in the current working directory (repository root)
+3. `~/.sentinel.yaml` in the user home directory
+
+If no file is found, built-in defaults apply. The config is unmarshaled on top of the defaults, so omitted fields retain their default values.
+
+### Full Reference
+
+```yaml
+# Shannon entropy threshold (bits/symbol).
+# Valid range: 0.0 to 8.0.
+# Raise to reduce false positives. Lower to increase sensitivity.
+# Default: 4.5
+entropy_threshold: 4.5
+
+# Minimum token length for entropy analysis.
+# Tokens shorter than this produce unreliable entropy scores.
+# Default: 20
+min_secret_length: 20
+
+# Maximum file size to scan. Files exceeding this are skipped with a warning.
+# Default: 10485760 (10 MB)
+max_file_size_bytes: 10485760
+
+# Whether to attempt scanning binary files (detected by null-byte in first 8 KB).
+# Default: false
+scan_binary_files: false
+
+# Glob patterns (relative to repo root) to skip.
+# Default list:
+exclude_paths:
+  - "vendor/**"
+  - "node_modules/**"
+  - "*.lock"
+  - "go.sum"
+
+# File extensions to skip (case-insensitive).
+# Default list includes images, fonts, audio, video, archives, binaries, office docs.
+exclude_extensions:
+  - ".png"
+  - ".jpg"
+  - ".jpeg"
+  - ".gif"
+  - ".zip"
+  - ".tar"
+  - ".gz"
+  - ".exe"
+  - ".dll"
+  - ".so"
+  - ".pdf"
+
+# Allowlist: findings whose token matches are silently ignored.
+# Supports exact strings and filepath.Match glob patterns.
+allowlist_patterns:
+  - "AKIAIOSFODNN7EXAMPLE"
+  - "sk_test_*"
+  - "*-dummy-token-*"
+
+# Disable individual detection tiers. Use with caution.
+disable_tiers:
+  trie: false     # disables Tier 1 Aho-Corasick matching
+  entropy: false  # disables Tier 2 entropy analysis
+  context: false  # disables Tier 3 suppression — expect many false positives
+
+# Exit after the first finding. Useful for fast CI fail loops.
+# Default: false
+fail_fast: false
+
+# Print debug output (skipped files, verbose decisions) to stderr.
+# Default: false
+verbose: false
+
+# Custom signatures compiled into the Aho-Corasick automaton alongside builtins.
+# Severity must be one of: CRITICAL, HIGH, MEDIUM, LOW (defaults to HIGH if omitted).
+custom_signatures:
+  - id: "internal-api-key"
+    description: "Proprietary internal service credential"
+    prefix: "mycompany_key_"
+    severity: "CRITICAL"
+    regex: "^mycompany_key_[a-zA-Z0-9]{32}$"   # optional validation regex
 ```
+
+### Entropy Threshold Reference
+
+| Value | Behavior |
+|-------|----------|
+| 3.0 | Very sensitive — may flag base32 identifiers and short low-entropy passwords |
+| 3.5 | High sensitivity — catches most secrets; slightly elevated noise |
+| 4.5 | **Default** — catches cryptographically random secrets; low false-positive rate |
+| 5.0 | Strict — may miss weak passwords; minimal noise |
 
 ---
 
-### Ad-hoc File Scan
+## Usage
 
-Scan any file or directory without going through git:
+### Pre-commit Hook (Automatic)
+
+After `sentinel install`, the hook fires automatically on every `git commit` and scans only the staged diff (added lines of modified files, full content of new files).
 
 ```bash
-# Scan a single file
+git add src/config.go
+git commit -m "add config"
+# Sentinel scans staged content here
+```
+
+For new files (status A), Sentinel reads the staged blob with `git show :<path>`.
+For modified files (status M/R/C), it reads added lines from `git diff --cached -- <path>`.
+
+### Ad-hoc Scanning
+
+```bash
+# Single file
 sentinel scan config/production.yaml
 
-# Scan a directory (non-recursive by default)
+# Directory (non-recursive, reads immediate children only)
 sentinel scan ./config
 
-# Scan recursively
-sentinel scan --recursive ./src
+# Directory, recursive (walks all subdirectories; skips .git, build, node_modules)
+sentinel scan -r ./src
 
-# Deep Git History Scan (Audit every commit in the repository)
+# Full Git history audit (streams git log --all -p, deduplicates by token)
 sentinel scan --history .
 
-# Pipe JSON output to jq for automation
-sentinel scan --format json ./src | jq '.findings[].severity'
+# JSON output for automation
+sentinel scan -f json -r ./src | jq '.findings[] | select(.severity == "CRITICAL")'
+
+# SARIF for GitHub Advanced Security
+sentinel scan -f sarif -r . > sentinel.sarif
 ```
+
+In ad-hoc mode, files are processed concurrently using `max(runtime.NumCPU(), 4)` worker goroutines. Findings from concurrent workers are deduplicated by token value before output.
+
+In history mode, Sentinel pipes `git log --all -p` through a streaming scanner with a 10 MB line buffer, producing one finding per unique token across the entire commit tree.
+
+### Command Reference
+
+#### `sentinel run`
+
+Invoked automatically by the Git hook. Scans staged changes only.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-c, --config` | auto-detected | Path to `.sentinel.yaml` |
+| `-f, --format` | `pretty` | Output format: `pretty`, `json`, `plain`, `sarif` |
+| `--fail-fast` | false | Stop after the first finding |
+| `-v, --verbose` | false | Print debug information to stderr |
+
+#### `sentinel scan [path...]`
+
+Ad-hoc scan of files, directories, or history.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-c, --config` | auto-detected | Path to `.sentinel.yaml` |
+| `-f, --format` | `pretty` | Output format: `pretty`, `json`, `plain`, `sarif` |
+| `-r, --recursive` | false | Recursively walk subdirectories |
+| `--history` | false | Scan entire Git commit history |
+| `-v, --verbose` | false | Print debug information to stderr |
+
+#### `sentinel install`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--global` | false | Install into `~/.config/sentinel/hooks/pre-commit` and set `core.hooksPath` |
+| `--repo` | `.` | Target repository root path |
+| `-f, --force` | false | Overwrite an existing hook without prompting |
+
+#### `sentinel update`
+
+Downloads the latest release binary for the current OS and architecture from the GitHub Releases API, verifies it, and atomically replaces the running executable. Falls back to `go install` if no pre-compiled binary matches the current platform.
+
+A background update check runs asynchronously on each invocation. It queries the API at most once per 24 hours (result cached at `~/.config/sentinel/last_check.json`) and prints a notice to stderr if a newer version is available.
+
+#### `sentinel uninstall`
+
+Removes: the running binary (resolved dynamically from `os.Executable()`), `~/.config/sentinel/`, `git config --global core.hooksPath`, and `.git/hooks/pre-commit` in the current repository.
+
+#### `sentinel version`
+
+Prints `Version`, `Commit` (7-char SHA), and `Date` as injected by the build system.
 
 ---
 
-### JSON Output Mode
+## Output Reference
 
-```bash
-sentinel run --format json 2>&1 | jq .
+### Pretty Format (default)
+
+**Clean scan (exit 0):**
+```
+  SENTINEL CLEAN  --  4 file(s) scanned in 3.2ms
 ```
 
-JSON output schema:
+**Blocked scan (exit 1):**
+```
+   CRITICAL   cmd/main.go:12
+               [PATTERN] GitHub Personal Access Token (classic)
+               Token:  ghp_AB****************************cdef
+               -> token := "ghp_AB...cdef"
+
+   HIGH       config/settings.go:8
+               [ENTROPY] High-entropy BASE64 string (entropy=6.23)
+               Token:  wJalrX****************************EY
+               Entropy: 6.2301 bits/symbol
+               -> AWS_SECRET = "wJalrX...EY"
+
+---------------------------------------------------------------------
+  SENTINEL SCAN COMPLETE
+  Files scanned : 4
+  Elapsed       : 5.1ms
+  Findings      :  CRITICAL:1   HIGH:1   MEDIUM:0   LOW:0
+---------------------------------------------------------------------
+
+  COMMIT BLOCKED -- remove the secrets above and try again.
+```
+
+### JSON Format (`-f json`)
+
+Written to `stdout`. All other formats write to `stderr`.
 
 ```json
 {
   "sentinel_version": "v2.0.4",
   "status": "blocked",
-  "scanned_files": 3,
-  "elapsed_ms": 4,
+  "scanned_files": 4,
+  "elapsed_ms": 5,
   "findings": [
     {
       "file_path": "cmd/main.go",
@@ -692,183 +674,123 @@ JSON output schema:
 }
 ```
 
----
+When the scan is clean, `"status"` is `"clean"` and `"findings"` is an empty array.
 
-### CI Integration
+### SARIF Format (`-f sarif`)
+
+Produces a SARIF 2.1.0 document compatible with GitHub Advanced Security Code Scanning. Written to `stdout`.
 
 ```yaml
 # .github/workflows/security.yml
-- name: Sentinel secret scan
+- name: Secret scan
   run: |
-    sentinel scan --format json --recursive . > sentinel-report.json
-    jq -e '.status == "clean"' sentinel-report.json
-```
-
-For GitLab CI:
-
-```yaml
-sentinel:
-  script:
-    - sentinel scan --format json --recursive . | tee sentinel-report.json
-    - jq -e '.status == "clean"' sentinel-report.json
-  artifacts:
-    reports:
-      sast: sentinel-report.json
-```
-
----
-
-### CLI Commands & Flags
-
-Sentinel provides a robust CLI powered by the Cobra framework. Here is the comprehensive list of commands and their options:
-
-#### 1. `sentinel run`
-The core execution engine. Automatically invoked by Git during `git commit` to sweep staged lines for secrets.
-* `-c, --config string`: Path to a `.sentinel.yaml` config file. (Defaults to repo root, then home directory)
-* `-f, --format string`: Output format: `pretty` (default ANSI), `json`, `plain`, or `sarif` (for GitHub Advanced Security Code Scanning alerts).
-* `--fail-fast`: Immediately aborts and blocks the commit upon finding the *first* secret.
-* `-v, --verbose`: Enables verbose debug output.
-
-#### 2. `sentinel scan [path...]`
-Ad-hoc scanning mode. Bypasses Git to sweep arbitrary files or directories.
-* `-c, --config string`: Path to a `.sentinel.yaml` config file.
-* `-f, --format string`: Output format: `pretty`, `json`, `plain`, or `sarif`.
-* `-r, --recursive`: Recursively scan subdirectories. (Uses `git ls-files` under the hood if available for max speed).
-* `-v, --verbose`: Enables verbose debug output.
-
-#### 3. `sentinel install`
-Writes the POSIX-compliant shell script into `.git/hooks/pre-commit` to protect the repository.
-* `--global`: Installs the hook globally by creating `~/.config/sentinel/hooks/pre-commit` and running `git config --global core.hooksPath`. Protects every repo on your machine.
-* `--repo string`: Path to the Git repository root (default is current directory `"."`).
-* `-f, --force`: Overwrites an existing `pre-commit` hook script without prompting.
-
-#### 4. `sentinel uninstall`
-The ultimate cleanup command. Safely uproots Sentinel by:
-* Running `git config --global --unset core.hooksPath`.
-* Deleting its own executable binary from your system path dynamically.
-* Deleting the `~/.config/sentinel` directory and local `.git/hooks/pre-commit` file.
-
-#### 5. `sentinel update`
-The Over-The-Air (OTA) self-updater.
-* Queries the GitHub Releases API (using a custom UDP dialer to bypass broken local IPv6/DNS).
-* Downloads the raw pre-compiled binary for your OS/Arch and performs an atomic safe-replacement over the running executable. Falls back to `go install` if no pre-compiled binary matches.
-* Sentinel also features a **silent, non-blocking background update check** that runs at most once per day to notify you of new releases.
-
-#### 6. `sentinel version`
-Prints the build metadata including `Version`, `Commit` (short SHA), and `Date`.
-
-#### Framework & Global Commands
-* `sentinel completion [shell]`: Generates autocompletion scripts for `bash`, `zsh`, `fish`, or `powershell`.
-* `sentinel help [command]`: Prints the help text and flag descriptions.
-* `-h, --help`: Global flag to trigger the help menu.
-* `-v, --version`: Global alias to print the version.
-
----
-
-## Running Tests
-
-```bash
-# Run all tests with race detector (recommended)
-make test
-
-# Or directly:
-go test ./... -v -race -count=1 -timeout 60s
-
-# Run benchmarks
-make bench
-# Or: go test ./... -bench=. -benchmem -benchtime=3x -run='^$'
-
-# Generate HTML coverage report
-make cover
-```
-
-Sample benchmark output:
-```
-BenchmarkAutomatonBuild-8         3     195,234 ns/op    327,680 B/op
-BenchmarkSearch-8              3000     341,012 ns/op          0 B/op   ← 0 allocs hot path
-BenchmarkSearchWithHit-8       2000     412,887 ns/op      3,456 B/op
-BenchmarkShannonSmall-8     5000000         234 ns/op          0 B/op
-BenchmarkFullPipeline-8          500   2,341,201 ns/op     12,340 B/op
-```
-
----
-
-## Output Reference
-
-**Clean commit (exit 0):**
-```
-  ✔ SENTINEL CLEAN  —  4 file(s) scanned in 3.2ms
-```
-
-**Blocked commit (exit 1):**
-```
-   CRITICAL   cmd/main.go:12
-               [PATTERN] GitHub Personal Access Token (classic)
-               Token:  ghp_AB****************************cdef
-               → token := "ghp_AB...cdef"
-
-   HIGH       config/settings.go:8
-               [ENTROPY] High-entropy BASE64 string (entropy=6.23)
-               Token:  wJalrX****************************EY
-               Entropy: 6.2301 bits/symbol
-               → AWS_SECRET = "wJalrX...EY"
-
-────────────────────────────────────────────────────────────────────
-  SENTINEL SCAN COMPLETE
-  Files scanned : 4
-  Elapsed       : 5.1ms
-  Findings      :  CRITICAL:1   HIGH:1   MEDIUM:0   LOW:0
-────────────────────────────────────────────────────────────────────
-
-  ✘ COMMIT BLOCKED — remove the secrets above and try again.
+    sentinel scan -f sarif -r . > sentinel.sarif
+  
+- name: Upload SARIF
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: sentinel.sarif
 ```
 
 ---
 
 ## False Positive Handling
 
-Sentinel's Tier 3 context filter eliminates false positives automatically. The scanner also performs **assignment-aware value extraction** — it only evaluates the actual RHS of an assignment or the content of string literals, never format strings, function arguments, or variable names in passing position.
+Tier 3 eliminates most false positives automatically. When a genuine false positive appears, use one of the following remediation methods in order of preference:
 
-If a false positive persists:
+**1. Inline suppression**
 
-1. **Inline Suppression** — Add a `// sentinel:ignore` comment on the preceding line or at the end of the line to completely bypass the flagged string.
-2. **Global Allowlist** — Add custom patterns (globs or exact strings) to `allowlist_patterns` in `.sentinel.yaml` — ideal for known test secrets or dummy variables (e.g. `sk_test_*`).
-3. **Check the file type** — move test data to files matching `*_test.go`, `tests/`, or `testdata/`.
-4. **Use a placeholder variable name** — `dummy_key`, `fake_token`, `mock_secret`, etc. are automatically suppressed by Tier 3.
-5. **Use an env-var reference** — `token: ${MY_TOKEN}` or `token: $MY_TOKEN` are recognized as safe placeholders.
-6. **Add the path to `exclude_paths`** in `.sentinel.yaml`.
-7. **Raise `entropy_threshold`** slightly (e.g., `3.8`) if your codebase has many high-entropy non-secret identifiers.
+Place `sentinel:ignore` on the line itself or on the preceding comment line. Works in any language.
 
----
+```go
+// sentinel:ignore
+const exampleToken = "ghp_DOCUMENTED_EXAMPLE_TOKEN_FOR_README"
+```
 
-### Allowlist Patterns
+```python
+API_KEY = "sk_live_documented_example"  # sentinel:ignore
+```
 
-If you have specific dummy tokens or test credentials that you explicitly want to commit, you can ignore them globally using `allowlist_patterns` in your `.sentinel.yaml`. Both exact matches and glob patterns are supported:
+**2. Safe variable name**
+
+Rename the variable to include a safe word. Tier 3 inspects the variable name left of `=` or `:=`.
+
+```go
+dummy_api_key := "ghp_REAL_LOOKING_TOKEN"   // suppressed
+fake_stripe_key := "sk_live_example"         // suppressed
+```
+
+**3. Allowlist pattern**
+
+Add exact strings or `filepath.Match` glob patterns to `allowlist_patterns` in `.sentinel.yaml`:
 
 ```yaml
 allowlist_patterns:
-  - "AKIAIOSFODNN7EXAMPLE" # Exact match for AWS dummy key
-  - "sk_test_*"            # Glob match for Stripe test keys
-  - "*-dummy-key-*"        # Match any string containing this phrase
+  - "AKIAIOSFODNN7EXAMPLE"   # exact match
+  - "sk_test_*"              # all Stripe test keys
+  - "*-placeholder-*"
 ```
 
-Any finding whose token matches an allowlist pattern will be silently ignored.
+**4. Test file path**
+
+Move the file to a path that Tier 3 recognizes as a test or documentation context: `*_test.go`, `tests/`, `testdata/`, `fixtures/`, `__tests__/`, `__mocks__/`, files ending in `.md` or `.rst`.
+
+**5. Environment variable reference**
+
+Use `$VAR` or `${VAR}` syntax. Tier 3 classifies these as `SafePlaceholder`.
+
+```yaml
+stripe_key: "${STRIPE_SECRET_KEY}"
+```
+
+**6. Exclude the path**
+
+```yaml
+exclude_paths:
+  - "docs/examples/**"
+  - "infra/terraform/**"
+```
+
+**7. Adjust entropy threshold**
+
+Raise `entropy_threshold` slightly if your codebase contains many high-entropy non-secret identifiers (e.g., long UUIDs, content hashes used as identifiers).
 
 ---
 
-## Roadmap (TODO)
+## Running Tests
 
-Curious about upcoming enterprise features, capabilities, and general enhancements planned for Sentinel? 
+```bash
+# All tests with race detector
+make test
 
-Check out our official **[Public Roadmap (TODO.md)](TODO.md)**.
+# Benchmarks
+make bench
+
+# HTML coverage report (output: coverage.html)
+make cover
+
+# Static analysis
+make lint
+```
+
+Representative benchmark output:
+```
+BenchmarkAutomatonBuild-8        3     195,234 ns/op    327,680 B/op
+BenchmarkSearch-8             3000     341,012 ns/op          0 B/op
+BenchmarkSearchWithHit-8      2000     412,887 ns/op      3,456 B/op
+BenchmarkShannonSmall-8    5000000         234 ns/op          0 B/op
+BenchmarkFullPipeline-8         500   2,341,201 ns/op     12,340 B/op
+```
+
+The `BenchmarkSearch` zero-allocation figure confirms the hot path performs no heap allocations during scanning.
 
 ---
 
 ## Contributing
 
-We welcome community contributions! However, because this project utilizes a Dual-Licensing model, **all contributors must agree to our [Contributor License Agreement (CLA)](CLA.md)**. By opening a Pull Request, you explicitly agree to transfer the copyright of your submitted code to Khaled Hani. This ensures the project remains legally secure for both open-source and commercial environments.
+Contributions are welcome. All contributors must agree to the **[Contributor License Agreement](CLA.md)**. By submitting a pull request you confirm that you transfer copyright of the contribution to Khaled Hani. This protects the project's dual-licensing model.
 
-
+---
 
 ## Author
 
@@ -878,7 +800,9 @@ Developed by **Khaled Hani** — [https://t.me/A245F](https://t.me/A245F)
 
 ## License
 
-GNU AGPL v3.0 License. Commercial SaaS use without open-sourcing is prohibited.
+GNU Affero General Public License v3.0.
+
+Commercial SaaS deployment or distribution of a modified version without releasing the source under AGPL-3.0 is prohibited. See [LICENSE](LICENSE) for full terms.
 
 ---
 
