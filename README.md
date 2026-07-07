@@ -160,7 +160,6 @@ Measured on real-world repositories with Sentinel v2.0.5 against the two most po
 | Global hook installation | + | + | — | — |
 | Custom user-defined signatures | + | — | + | — |
 | OTA self-updating binary | + | — | — | — |
-| Zero external runtime dependencies | + | + | — | — |
 
 ---
 
@@ -567,14 +566,18 @@ To upload the results to GitHub Advanced Security (Code Scanning Alerts), config
 
 ```yaml
 # GitLab CI
-sentinel:
+sentinel-scan:
+  stage: test
+  image: golang:1.22
+  before_script:
+    - go install github.com/sentinel-cli/sentinel/v2/cmd/sentinel@latest
   script:
-    - sentinel scan -f json -o sentinel-report.json .
-    - jq -e '.status == "clean"' sentinel-report.json
+    # Run scan; output JSON to file and print pretty results to console
+    - sentinel scan -f pretty -o sentinel-report.json .
   artifacts:
-    reports:
-      sast: sentinel-report.json
-
+    when: always
+    paths:
+      - sentinel-report.json
 ```
 
 ### Command Reference

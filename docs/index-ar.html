@@ -38,7 +38,7 @@
       "description": "An enterprise-grade, zero-dependency Git pre-commit secret detector written in Go.",
       "operatingSystem": "Linux, macOS, Windows, Android (Termux)",
       "applicationCategory": "DeveloperApplication",
-      "softwareVersion": "2.0.4",
+      "softwareVersion": "2.0.5",
       "codeRepository": "https://github.com/sentinel-cli/sentinel",
       "license": "https://github.com/sentinel-cli/sentinel/blob/main/LICENSE",
       "offers": {
@@ -77,6 +77,7 @@
                 <a href="#pipeline" class="nav-link">البنية الهندسية</a>
                 <a href="#benchmarks" class="nav-link">الأداء والأرقام</a>
                 <a href="#installation" class="nav-link">التثبيت والدمج</a>
+                <a href="#configuration" class="nav-link">الإعدادات</a>
                 <a href="#masterpieces" class="nav-link">المشاريع</a>
                 <a href="#blog" class="nav-link">المدونة</a>
                 <a href="#community" class="nav-link">الدعم والمجتمع</a>
@@ -158,7 +159,7 @@
                     <thead>
                         <tr>
                             <th>المقياس المرصود</th>
-                            <th>سنتينل (v2.0.4)</th>
+                            <th>سنتينل (v2.0.5)</th>
                             <th>جيتليكس (v8.30.1)</th>
                             <th>ترافلهوغ (v3.95.7)</th>
                         </tr>
@@ -211,7 +212,7 @@
             <p>أسرع طريقة لتثبيت الأداة مباشرة على نظامك دون الحاجة لبناء الملف من المصدر. مناسبة جداً لمستخدمي أندرويد و Termux.</p>
             <pre class="font-mono">
 # 1. تنزيل الملف الثنائي المناسب لمعمارية جهازك
-wget https://github.com/sentinel-cli/sentinel/releases/download/v2.0.4/sentinel-v2.0.4-linux-arm64 -O sentinel
+wget https://github.com/sentinel-cli/sentinel/releases/download/v2.0.5/sentinel-v2.0.5-linux-arm64 -O sentinel
 
 # 2. منح صلاحيات التشغيل للملف
 chmod +x sentinel
@@ -224,7 +225,7 @@ sentinel version</pre>
 
             <h3>الخيار ب: مثبت حزم لغة Go</h3>
             <p>إذا كان لديك بيئة Go مهيأة في مسار نظامك، يمكنك تنزيل وبناء الأداة مباشرة بالأمر التالي:</p>
-            <pre class="font-mono">go install github.com/sentinel-cli/sentinel/cmd/sentinel@latest</pre>
+            <pre class="font-mono">go install github.com/sentinel-cli/sentinel/v2/cmd/sentinel@latest</pre>
 
             <h3>الخيار ج: التجميع والبناء من المصدر</h3>
             <p>استنساخ المستودع وبناء الملف الثنائي يدوياً باستخدام أوامر Makefile المرفقة:</p>
@@ -265,15 +266,58 @@ sentinel install --global</pre>
             <pre class="font-mono">sentinel scan -r -f sarif . &gt; report.sarif</pre>
         </section>
 
-        <!-- Chapter 6: Engineering Blog -->
+        <!-- Chapter 6: Configuration & Custom Rules -->
+        <section id="configuration" class="section scroll-fade">
+            <div class="eyebrow">
+                06 / التخصيص والضبط
+            </div>
+            <h2>تخصيص سنتينل ليتوافق مع مستودعك البرمجي</h2>
+            <p>يعمل سنتينل بشكل فوري ومباشر بالإعدادات الافتراضية الجاهزة للإنتاج. بالنسبة لفرق العمل والمؤسسات ذات بيئات العمل المعقدة، يمكن تعديل وتخصيص سلوك الكشف بإضافة ملف <code>.sentinel.yaml</code> في الجذر الرئيسي للمستودع.</p>
+
+            <h3>قواعد الكشف المخصصة (Custom Signatures)</h3>
+            <p>يمكنك كتابة وتحديد بادئات المفاتيح الخاصة بمؤسستك وتجميعها مباشرة ضمن شجرة حالات البحث (Aho-Corasick Automaton) دون التسبب بأي بطء تشغيلي:</p>
+            <pre class="font-mono">
+# .sentinel.yaml
+custom_signatures:
+  - id: "internal-api-key"
+    description: "Proprietary internal service credential"
+    prefix: "mycompany_key_"
+    severity: "CRITICAL"
+    regex: "^mycompany_key_[a-zA-Z0-9]{32}$"</pre>
+
+            <h3>استبعاد المسارات والامتدادات (Exclusions)</h3>
+            <p>لتسريع عمليات الفحص والابتعاد عن فحص المجلدات الخارجية أو ملفات الوسائط الثقيلة:</p>
+            <pre class="font-mono">
+exclude_paths:
+  - "vendor/**"
+  - "node_modules/**"
+exclude_extensions:
+  - ".png"
+  - ".zip"</pre>
+
+            <h3>أنماط القائمة البيضاء العالمية (Allowlist)</h3>
+            <p>لمنع إطلاق تنبيهات كاذبة حول مفاتيح عامة أو تجريبية معروفة مسبقاً وتستخدم بكثرة في الاختبارات:</p>
+            <pre class="font-mono">
+allowlist_patterns:
+  - "AKIAIOSFODNN7EXAMPLE"   # مطابقة تامة
+  - "sk_test_*"              # كافة مفاتيح اختبار Stripe</pre>
+        </section>
+
+        <!-- Chapter 7: Engineering Blog -->
         <section id="blog" class="section scroll-fade">
             <div class="eyebrow">
-                06 / المدونة الهندسية
+                07 / المدونة الهندسية
             </div>
             <h2>كواليس التطوير الهندسية وملفات النظام</h2>
             <p>مقالات يشاركها المطورون لشرح آليات تحسين وسرعة الكشف والفلسفة الأمنية خلف بناء الأداة.</p>
             
             <div style="margin: 2rem 0; border-top: 1px solid var(--color-border);">
+                <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
+                    <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">7 يوليو 2026</p>
+                    <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-ar); font-size: 1.5rem; font-weight: 700;"><a href="https://github.com/sentinel-cli/sentinel" target="_blank" style="color: inherit; text-decoration: none;">محرك الـ DFA المسطح: القضاء على حجز الذاكرة في المسار الساخن</a></h4>
+                    <p style="font-size: 0.9rem; margin-bottom: 0; color: var(--color-text-muted);">كيف نجح الإصدار 2.0.5 في تمثيل خوارزمية Aho-Corasick عبر جدول DFA مسطح ومتصل ومفهرس بالأعداد الصحيحة. أدى ذلك لتقليص ذاكرة Trie النشطة إلى 500 كيلوبايت، وتخفيض ذروة استهلاك ذاكرة النظام RSS إلى الحدود الدنيا لبيئة عمل Go (~11 ميجابايت) مع انعدام تام لحجز الذاكرة المؤقتة (Heap Allocations) أثناء الفحص.</p>
+                </div>
+
                 <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
                     <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">3 يوليو 2026</p>
                     <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-ar); font-size: 1.5rem; font-weight: 700;"><a href="https://github.com/sentinel-cli/sentinel" target="_blank" style="color: inherit; text-decoration: none;">تحسين استهلاك الذاكرة: تجميع القواعد مباشرة في الأوتوماتون</a></h4>
@@ -288,10 +332,10 @@ sentinel install --global</pre>
             </div>
         </section>
 
-        <!-- Chapter 7: Other Masterpieces -->
+        <!-- Chapter 8: Other Masterpieces -->
         <section id="masterpieces" class="section scroll-fade">
             <div class="eyebrow">
-                07 / المشاريع الأخرى
+                08 / المشاريع الأخرى
             </div>
             <h2>تحف هندسية ومعمارية أخرى</h2>
             <p>استكشف مشاريع الحماية والشبكات وتطبيقات خوادم النظام المطورة في بيئتنا التقنية الخاصة.</p>
@@ -314,10 +358,10 @@ sentinel install --global</pre>
             </div>
         </section>
 
-        <!-- Chapter 8: Community & User Discussions -->
+        <!-- Chapter 9: Community & User Discussions -->
         <section id="community" class="section scroll-fade">
             <div class="eyebrow">
-                08 / مجتمع المطورين والدعم
+                09 / مجتمع المطورين والدعم
             </div>
             <h2>تواصل معنا وناقش تفاصيل الحماية البرمجية</h2>
             <p>سنتينل هو مشروع مفتوح المصدر تم تطويره بالكامل بالتعاون مع مجتمع المطورين. نهتم جداً بمراجعاتكم واقتراحاتكم لتحديث القواعد وزيادة فاعلية الكشف.</p>

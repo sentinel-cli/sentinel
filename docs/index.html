@@ -38,7 +38,7 @@
       "description": "An enterprise-grade, zero-dependency Git pre-commit secret detector written in Go.",
       "operatingSystem": "Linux, macOS, Windows, Android (Termux)",
       "applicationCategory": "DeveloperApplication",
-      "softwareVersion": "2.0.4",
+      "softwareVersion": "2.0.5",
       "codeRepository": "https://github.com/sentinel-cli/sentinel",
       "license": "https://github.com/sentinel-cli/sentinel/blob/main/LICENSE",
       "offers": {
@@ -77,6 +77,7 @@
                 <a href="#pipeline" class="nav-link">Pipeline</a>
                 <a href="#benchmarks" class="nav-link">Performance</a>
                 <a href="#installation" class="nav-link">Install</a>
+                <a href="#configuration" class="nav-link">Config</a>
                 <a href="#masterpieces" class="nav-link">Projects</a>
                 <a href="#blog" class="nav-link">Blog</a>
                 <a href="#community" class="nav-link">Community</a>
@@ -158,7 +159,7 @@
                     <thead>
                         <tr>
                             <th>Audited Metric</th>
-                            <th>Sentinel (v2.0.4)</th>
+                            <th>Sentinel (v2.0.5)</th>
                             <th>Gitleaks (v8.30.1)</th>
                             <th>TruffleHog (v3.95.7)</th>
                         </tr>
@@ -211,7 +212,7 @@
             <p>The fastest way to install Sentinel without Go dependencies. Perfect for Termux/Android and Linux systems.</p>
             <pre class="font-mono">
 # 1. Download the target binary
-wget https://github.com/sentinel-cli/sentinel/releases/download/v2.0.4/sentinel-v2.0.4-linux-arm64 -O sentinel
+wget https://github.com/sentinel-cli/sentinel/releases/download/v2.0.5/sentinel-v2.0.5-linux-arm64 -O sentinel
 
 # 2. Add execution permissions
 chmod +x sentinel
@@ -224,7 +225,7 @@ sentinel version</pre>
 
             <h3>Option B: Go package installer</h3>
             <p>If you have Go installed on your path, fetch and compile the latest release directly:</p>
-            <pre class="font-mono">go install github.com/sentinel-cli/sentinel/cmd/sentinel@latest</pre>
+            <pre class="font-mono">go install github.com/sentinel-cli/sentinel/v2/cmd/sentinel@latest</pre>
 
             <h3>Option C: Compile from source</h3>
             <p>Clone the repository and build manually using our Makefile configurations:</p>
@@ -265,15 +266,58 @@ sentinel install --global</pre>
             <pre class="font-mono">sentinel scan -r -f sarif . &gt; report.sarif</pre>
         </section>
 
-        <!-- Chapter 6: Engineering Blog -->
+        <!-- Chapter 6: Configuration & Custom Rules -->
+        <section id="configuration" class="section scroll-fade">
+            <div class="eyebrow">
+                06 / Custom Tuning
+            </div>
+            <h2>Tailoring Sentinel to your codebase</h2>
+            <p>Sentinel works out of the box with production-ready defaults. For enterprise teams or complex workspaces, behavior can be customized by placing a <code>.sentinel.yaml</code> file in the repository root.</p>
+
+            <h3>Custom API Signatures</h3>
+            <p>You can define proprietary rules and compile them directly into the Aho-Corasick automaton alongside built-in rules, avoiding regex overhead:</p>
+            <pre class="font-mono">
+# .sentinel.yaml
+custom_signatures:
+  - id: "internal-api-key"
+    description: "Proprietary internal service credential"
+    prefix: "mycompany_key_"
+    severity: "CRITICAL"
+    regex: "^mycompany_key_[a-zA-Z0-9]{32}$"</pre>
+
+            <h3>Path & Extension Exclusions</h3>
+            <p>Skip specific folders (e.g. vendored dependencies) and file types to minimize scan time:</p>
+            <pre class="font-mono">
+exclude_paths:
+  - "vendor/**"
+  - "node_modules/**"
+exclude_extensions:
+  - ".png"
+  - ".zip"</pre>
+
+            <h3>Global Allowlist Patterns</h3>
+            <p>Prevent false positives for known mock/test keys used across multiple directories:</p>
+            <pre class="font-mono">
+allowlist_patterns:
+  - "AKIAIOSFODNN7EXAMPLE"   # Exact match
+  - "sk_test_*"              # Stripe test keys</pre>
+        </section>
+
+        <!-- Chapter 7: Engineering Blog -->
         <section id="blog" class="section scroll-fade">
             <div class="eyebrow">
-                06 / Engineering Blog
+                07 / Engineering Blog
             </div>
             <h2>Technical insights & system logs</h2>
             <p>Articles written by the developers covering the design, optimization, and security philosophy of Sentinel.</p>
             
             <div style="margin: 2rem 0; border-top: 1px solid var(--color-border);">
+                <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
+                    <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">JULY 7, 2026</p>
+                    <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-en); font-size: 1.5rem; font-weight: 400;"><a href="https://github.com/sentinel-cli/sentinel" target="_blank" style="color: inherit; text-decoration: none;">Flat DFA Engine: Obliterating allocations in the hot path</a></h4>
+                    <p style="font-size: 0.9rem; margin-bottom: 0; color: var(--color-text-muted);">How version 2.0.5 implements a flat, contiguous, integer-indexed DFA table for Aho-Corasick matching. This reduces the Trie's active memory to 500 KB, bringing absolute peak RSS down to Go runtime limits (~11 MB) with zero scan heap allocations.</p>
+                </div>
+                
                 <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
                     <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">JULY 3, 2026</p>
                     <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-en); font-size: 1.5rem; font-weight: 400;"><a href="https://github.com/sentinel-cli/sentinel" target="_blank" style="color: inherit; text-decoration: none;">Memory Optimization: Compiling Rules directly to the Automaton</a></h4>
@@ -288,10 +332,10 @@ sentinel install --global</pre>
             </div>
         </section>
 
-        <!-- Chapter 7: Other Masterpieces -->
+        <!-- Chapter 8: Other Masterpieces -->
         <section id="masterpieces" class="section scroll-fade">
             <div class="eyebrow">
-                07 / Other Projects
+                08 / Other Projects
             </div>
             <h2>Other engineering masterpieces</h2>
             <p>Explore other security, networking, and system-level applications built in our network ecosystem.</p>
@@ -314,10 +358,10 @@ sentinel install --global</pre>
             </div>
         </section>
 
-        <!-- Chapter 8: Community & User Discussions -->
+        <!-- Chapter 9: Community & User Discussions -->
         <section id="community" class="section scroll-fade">
             <div class="eyebrow">
-                08 / Community & Feedback
+                09 / Community & Feedback
             </div>
             <h2>Get in touch & discuss security</h2>
             <p>Sentinel is an open-source security tool built in collaboration with the developer community. We value feedback, rule suggestions, and reports from all users.</p>
