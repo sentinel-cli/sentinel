@@ -3,7 +3,7 @@ description: 'Scan Git repositories for secrets, keys, and credentials in CI/CD.
 author: 'Khaled Hani'
 branding:
   icon: 'shield'
-  color: 'slate'
+  color: 'gray-dark'
 
 inputs:
   version:
