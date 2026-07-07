@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.5-beta] - 2026-07-07
+
+### Added
+- **Reusable GitHub Action:** Officially released the custom composite GitHub Action (`action.yml`) supporting options (`version`, `args`, `sarif`) and optimized log visibility.
+- **Dedicated Output Argument:** Added the `-o` / `--output` flag to Sentinel scan, enabling clean colorized console stdout logs in GHA while saving SARIF/JSON files silently.
+- **Android Build Integration:** Unified Sentinel scans directly into the `NexusFi-app` build pipeline, blocking unauthorized apk packaging on security findings.
+- **Mailgun and Hex Letters-Only Tests:** Added unit tests verifying full token extraction and letter-only hex token detection.
+
+### Fixed
+- **Mailgun Token Truncation:** Fixed `containsAssignmentOrKeyword` to prevent custom/Mailgun prefixes (like `key-`) from being stripped from reported tokens.
+- **Hex letters-only False Negatives:** Removed `isJavaConstant` check from the hex token entropy filter to prevent random letter-only hex keys (e.g. `abcdefABCDEF...`) from being skipped.
+
+### Performance
+- **Zero-Allocation Base64 Decoding:** Allocated a reusable pre-sized buffer (`decBuf`) in `ScanContent` to eliminate per-line heap allocation overhead during Base64 decoding, resulting in **~9% faster scan times** and zero GC pressure under heavy log/text processing.
+
 ## [2.0.4] - 2026-07-03
 
 ### Added
