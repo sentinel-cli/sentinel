@@ -542,7 +542,7 @@ sentinel scan -f sarif -o sentinel.sarif .
 The easiest way to integrate Sentinel into your GitHub Actions workflow is by using our official reusable action. It handles Go installation, compilation cache, and scanning automatically:
 
 ```yaml
-- name: Run Sentinel Security Scan
+- name: Run Sentinel Git Secrets Scanner
   uses: sentinel-cli/sentinel@v2
   with:
     version: 'latest' # Optional: version to use (e.g. 'v2.0.5')

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **100% Core Test Coverage:** Introduced robust unit test suites for `reporter` (JSON, Plain, SARIF formats), `git` diff/staging parsers, `commands` (CLI builders), and `updater`, achieving complete core coverage and ensuring long-term code stability.
-- **Reusable GitHub Action:** Officially released the custom composite GitHub Action (`action.yml`) supporting options (`version`, `args`, `sarif`) and optimized log visibility.
+- **Reusable GitHub Action:** Officially released the custom composite GitHub Action (`action.yml`) supporting options (`version`, `args`, `sarif`) and optimized log visibility, published to the Marketplace as **Sentinel Git Secrets Scanner**.
 - **Dedicated Output Argument:** Added the `-o` / `--output` flag to Sentinel scan, enabling clean colorized console stdout logs in GHA while saving SARIF/JSON files silently.
 - **Android Build Integration:** Unified Sentinel scans directly into the `NexusFi-app` build pipeline, blocking unauthorized apk packaging on security findings.
 - **Mailgun and Hex Letters-Only Tests:** Added unit tests verifying full token extraction and letter-only hex token detection.
