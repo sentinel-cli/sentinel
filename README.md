@@ -201,7 +201,7 @@ Measured on real-world repositories with Sentinel v2.0.4 against the two most po
          |
   [Reporter  —  internal/reporter/reporter.go]
    pretty / plain  → stderr    (human-readable, ANSI color)
-   json / sarif    → stdout    (machine-readable, pipeable)
+   json / sarif    → stdout    (or directly to file if --output is used)
          |
   exit 0 (CLEAN)  |  exit 1 (BLOCKED)
 ```
@@ -546,8 +546,9 @@ The easiest way to integrate Sentinel into your GitHub Actions workflow is by us
 - name: Run Sentinel Security Scan
   uses: sentinel-cli/sentinel@v2
   with:
-    args: '.'       # Arguments to pass to the scanner
-    sarif: 'true'   # Export findings to sentinel-results.sarif
+    version: 'latest' # Optional: Sentinel version to use (e.g. v2.0.4)
+    args: '.'         # Optional: arguments to pass (e.g. "." or "--history .")
+    sarif: 'true'     # Optional: set to 'true' to export findings as a SARIF report
 ```
 
 To upload the results to GitHub Advanced Security (Code Scanning Alerts), configure the upload step:

@@ -40,8 +40,8 @@ runs:
       run: |
         if [ "${{ inputs.sarif }}" = "true" ]; then
           echo "Running Sentinel scan with SARIF output..."
-          # Run scan and pipe output to SARIF file
-          sentinel scan ${{ inputs.args }} -f sarif > sentinel-results.sarif
+          # Run scan and write report to file using -o flag
+          sentinel scan -f sarif -o sentinel-results.sarif ${{ inputs.args }}
           echo "Scan finished. Results saved to sentinel-results.sarif"
         else
           echo "Running Sentinel scan..."
