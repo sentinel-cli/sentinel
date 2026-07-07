@@ -561,6 +561,10 @@ To upload the results to GitHub Advanced Security (Code Scanning Alerts), config
     sarif_file: sentinel-results.sarif
 ```
 
+> [!TIP]
+> You can inspect the official [action.yml](action.yml) file in the root of this repository to use as a template or reference for building your own custom GitHub Actions.
+
+
 
 ```yaml
 # GitLab CI
