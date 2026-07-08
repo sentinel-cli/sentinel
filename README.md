@@ -445,6 +445,8 @@ exclude_paths:
   - "*.lock"
   - "go.sum"
   - "package-lock.json"
+  - "**/locales/**"
+  - "**/i18n/**"
 
 # File extensions to skip (case-insensitive).
 # Default includes images, fonts, audio, video, archives, binaries, office documents.
@@ -481,6 +483,10 @@ exclude_extensions:
   - ".dylib"
   - ".a"
   - ".o"
+  - ".css"
+  - ".scss"
+  - ".csv"
+  - ".hex"
 
 # Allowlist: findings whose token matches are silently ignored.
 # Supports exact strings and filepath.Match glob patterns.

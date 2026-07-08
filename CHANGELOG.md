@@ -11,13 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fail-Fast Mode (`--fail-fast`):** Implemented `--fail-fast` across concurrent file scans and history traversals, aborting instantly upon identifying the first secret.
 - **Safe File Mode Handling:** Added strict non-regular file checking (`!info.Mode().IsRegular()`) to instantly skip named pipes, sockets, and character devices, eliminating terminal freezes.
 - **Consolidated Generic Signature Rules:** Consolidated the redundant JSON/YAML and CLI variable matching rules down to 4 unified, keyword-only signatures (`password`, `secret`, `api_key`, `token`) matching standard coding patterns.
+- **Sliding Path Globbing:** Upgraded path exclusion matching to slide over file path segments, enabling recursive matching of directory wildcards like `**/locales/**` and `**/i18n/**`.
+- **Expanded Test Coverage:** Expanded unit test coverage of the core packages to **88.7%** by testing configuration validation, reporter rendering formats, binary detection edge cases, and log formats.
 
 ### Fixed
 - **Recursive Lock File Exclusion:** Upgraded exclude path glob matcher to run filename matching against the path's base name, ensuring files like `*.lock` and `go.sum` are correctly excluded from subdirectories recursively.
 - **Strict AWS Key Validators:** Hardened AWS MFA/STS token detection by adding strict regular expression validators for `ABIA` and `ASIA` prefixes, eliminating false positive alerts on common English word compounds (e.g. "with a bias on").
 - **GitHub Actions Placeholder Suppression:** Enabled full suppression of GitHub Actions `${{secrets.X}}` expressions by passing them intact through clean/trim operations and matching them against safe config placeholder patterns.
 - **Entropy URL Filtering:** Prevented high-entropy false positives triggered by URL hostnames and paths by automatically skipping lines that contain HTTP/HTTPS schemes from entropy analysis.
-- **Dynamic Keyword-Only Assignment Check:** Refined `extractTokenFromOffset` to dynamically verify assignments (`=` or `:`) for generic keywords (`password`, `secret`, `api_key`, `token`), preventing generic false positives.
+- **Dynamic Keyword-Only Assignment Check & Quote Enforcement:** Requires generic keyword assignments in source files to have quoted values (closing quotes of keys no longer mimic value quotes).
+- **Self-Assignment Suppression (Check 9):** Implemented check to suppress matches where the cleaned variable name (LHS) is identical to the cleaned token value (RHS) (e.g. `auth_token: "auth_token"` or `password = "password"`).
+- **GitHub Action SHA Hash Skipping:** Automatically skip high-entropy hex tokens that are version hashes (preceded by `@`).
+- **Additional Excluded Extensions:** Exclude `.css`, `.scss`, `.csv`, and `.hex` extensions by default from scanning.
+- **Strict Mailgun Validator:** Hardened Mailgun key detection with a 32-character hex validator.
+- **Test File React Suffixes:** Added `.test.tsx`, `.spec.tsx`, `.test.jsx`, and `.spec.jsx` to test suffixes for context suppression.
 - **Output File Descriptor Closure:** Fixed a bug where `os.Exit(1)` bypassed deferred report file closures in `-o` / `--output`, resulting in truncated logs.
 - **Git Repo Validation:** Ensured Sentinel aborts clean-exits on non-git target paths during pre-commit scans.
 - **Updater & Uninstall Endpoints:** Fixed hardcoded update and uninstall utility URLs to point to version 2 API targets.

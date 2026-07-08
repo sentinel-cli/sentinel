@@ -40,6 +40,8 @@ exclude_paths:
   - "*.lock"
   - "go.sum"
   - "package-lock.json"
+  - "**/locales/**"
+  - "**/i18n/**"
   # - "path/to/safe/directory/**"
 
 # Global allowlist for custom patterns or exact strings.
@@ -82,6 +84,10 @@ exclude_extensions:
   - ".dylib"
   - ".a"
   - ".o"
+  - ".css"
+  - ".scss"
+  - ".csv"
+  - ".hex"
 
 # ── Tier Disabling (Advanced) ─────────────────────────────────────────────────
 
