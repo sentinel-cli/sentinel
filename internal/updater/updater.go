@@ -42,7 +42,7 @@ func CheckForUpdateAsync() <-chan string {
 		now := time.Now()
 		if now.Sub(cache.LastCheck) < 24*time.Hour {
 			if isNewer(cache.LatestVersion, version.Version) {
-				res <- fmt.Sprintf("⚠️ Notice: Sentinel update (%s) is available! Run 'sentinel update' to upgrade.", cache.LatestVersion)
+				res <- fmt.Sprintf("Notice: Sentinel update (%s) is available! Run 'sentinel update' to upgrade.", cache.LatestVersion)
 			}
 			return
 		}
@@ -73,7 +73,7 @@ func CheckForUpdateAsync() <-chan string {
 		os.WriteFile(cachePath, data, 0644)
 
 		if isNewer(cache.LatestVersion, version.Version) {
-			res <- fmt.Sprintf("⚠️ Notice: Sentinel update (%s) is available! Run 'sentinel update' to upgrade.", cache.LatestVersion)
+			res <- fmt.Sprintf("Notice: Sentinel update (%s) is available! Run 'sentinel update' to upgrade.", cache.LatestVersion)
 		}
 	}()
 	return res

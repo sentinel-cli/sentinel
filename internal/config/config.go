@@ -98,6 +98,7 @@ func defaultConfig() Config {
 			"node_modules/**",
 			"*.lock",
 			"go.sum",
+			"package-lock.json",
 		},
 		ExcludeExtensions: []string{
 			".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg",

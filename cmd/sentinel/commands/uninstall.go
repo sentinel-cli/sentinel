@@ -53,7 +53,7 @@ This command performs the following cleanup steps:
 			// c) Remove local pre-commit hook
 			os.Remove(".git/hooks/pre-commit")
 
-			fmt.Println("✅ Sentinel has been completely uprooted from the system.")
+			fmt.Println("✔ Sentinel has been completely uprooted from the system.")
 			return nil
 		},
 	}

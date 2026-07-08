@@ -135,17 +135,11 @@ var BuiltinSignatures = []Signature{
 	{ID: "shopify-private-token", Description: "Shopify Private App Token", Prefix: "shppa_", Severity: "HIGH"},
 	{ID: "shopify-access-token", Description: "Shopify App Access Token", Prefix: "shpat_", Severity: "CRITICAL"},
 
-	// ── Generic password indicators ───────────────────────────────────────────
-	{ID: "generic-password-key", Description: "Hardcoded password assignment", Prefix: "password=", Severity: "MEDIUM"},
-	{ID: "generic-secret-key", Description: "Hardcoded secret assignment", Prefix: "secret=", Severity: "MEDIUM"},
-	{ID: "generic-api-key", Description: "Hardcoded api_key assignment", Prefix: "api_key=", Severity: "MEDIUM"},
-	{ID: "generic-token-key", Description: "Hardcoded token assignment", Prefix: "token=", Severity: "MEDIUM"},
-
-	// ── JSON/YAML generic assignments ─────────────────────────────────────────
-	{ID: "generic-password-json", Description: "Hardcoded password assignment (JSON/YAML)", Prefix: "password:", Severity: "MEDIUM"},
-	{ID: "generic-secret-json", Description: "Hardcoded secret assignment (JSON/YAML)", Prefix: "secret:", Severity: "MEDIUM"},
-	{ID: "generic-api-key-json", Description: "Hardcoded api_key assignment (JSON/YAML)", Prefix: "api_key:", Severity: "MEDIUM"},
-	{ID: "generic-token-json", Description: "Hardcoded token assignment (JSON/YAML)", Prefix: "token:", Severity: "MEDIUM"},
+	// ── Generic indicators ────────────────────────────────────────────────────
+	{ID: "generic-password-key", Description: "Hardcoded password assignment", Prefix: "password", Severity: "MEDIUM"},
+	{ID: "generic-secret-key", Description: "Hardcoded secret assignment", Prefix: "secret", Severity: "MEDIUM"},
+	{ID: "generic-api-key", Description: "Hardcoded api_key assignment", Prefix: "api_key", Severity: "MEDIUM"},
+	{ID: "generic-token-key", Description: "Hardcoded token assignment", Prefix: "token", Severity: "MEDIUM"},
 
 	// ── Framework specific secret keys ────────────────────────────────────────
 	{ID: "django-secret-key", Description: "Django SECRET_KEY assignment", Prefix: "SECRET_KEY =", Severity: "HIGH"},
@@ -286,8 +280,13 @@ func toLower(b byte) byte {
 }
 
 // isAssignmentOrKeyword checks case-insensitively if prefix contains '=' or ':',
-// or matches one of the WordPress custom key/salt definitions.
+// or matches one of the WordPress custom key/salt definitions,
+// or is one of the generic keywords.
 func isAssignmentOrKeyword(s string) bool {
+	upper := strings.ToUpper(s)
+	if upper == "PASSWORD" || upper == "SECRET" || upper == "API_KEY" || upper == "TOKEN" {
+		return true
+	}
 	for i := 0; i < len(s); i++ {
 		b := s[i]
 		if b == '=' || b == ':' {
@@ -295,13 +294,10 @@ func isAssignmentOrKeyword(s string) bool {
 		}
 	}
 	// Check for exact WordPress config keywords (case-insensitive)
-	upper := strings.ToUpper(s)
 	return strings.Contains(upper, "AUTH_KEY") ||
-		strings.Contains(upper, "SECURE_AUTH_KEY") ||
 		strings.Contains(upper, "LOGGED_IN_KEY") ||
 		strings.Contains(upper, "NONCE_KEY") ||
 		strings.Contains(upper, "AUTH_SALT") ||
-		strings.Contains(upper, "SECURE_AUTH_SALT") ||
 		strings.Contains(upper, "LOGGED_IN_SALT") ||
 		strings.Contains(upper, "NONCE_SALT")
 }

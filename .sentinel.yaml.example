@@ -9,10 +9,10 @@
 # ── Tier 2 (Entropy) Tuning ───────────────────────────────────────────────────
 
 # Shannon entropy threshold (bits per symbol).
-# Range: 0.0 to 8.0. Default: 3.5
+# Range: 0.0 to 8.0. Default: 4.5
 # ↑ Raise to reduce false positives (misses more exotic secrets).
 # ↓ Lower to increase sensitivity (may increase noise).
-entropy_threshold: 3.5
+entropy_threshold: 4.5
 
 # Minimum token length for entropy analysis.
 # Tokens shorter than this are ignored — they produce noisy entropy scores.
@@ -74,6 +74,8 @@ exclude_extensions:
   - ".pdf"
   - ".doc"
   - ".docx"
+  - ".xls"
+  - ".xlsx"
   - ".exe"
   - ".dll"
   - ".so"

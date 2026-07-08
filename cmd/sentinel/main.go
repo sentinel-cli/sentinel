@@ -41,7 +41,7 @@ func main() {
 that prevents accidental commits of API keys, SSH private keys, passwords,
 and other sensitive data using a three-tier detection pipeline:
 
-  Tier 1 (PATTERN)  — Aho-Corasick trie matching of 68 known secret signatures
+  Tier 1 (PATTERN)  — Aho-Corasick trie matching of 64 known secret signatures
   Tier 2 (ENTROPY)  — Shannon entropy analysis for unknown/novel secrets
   Tier 3 (CONTEXT)  — Context-aware false-positive suppression
   

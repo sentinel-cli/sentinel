@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.6] - 2026-07-08
+
+### Added
+- **Fail-Fast Mode (`--fail-fast`):** Implemented `--fail-fast` across concurrent file scans and history traversals, aborting instantly upon identifying the first secret.
+- **Safe File Mode Handling:** Added strict non-regular file checking (`!info.Mode().IsRegular()`) to instantly skip named pipes, sockets, and character devices, eliminating terminal freezes.
+- **Consolidated Generic Signature Rules:** Consolidated the redundant JSON/YAML and CLI variable matching rules down to 4 unified, keyword-only signatures (`password`, `secret`, `api_key`, `token`) matching standard coding patterns.
+
+### Fixed
+- **Dynamic Keyword-Only Assignment Check:** Refined `extractTokenFromOffset` to dynamically verify assignments (`=` or `:`) for generic keywords (`password`, `secret`, `api_key`, `token`), preventing generic false positives.
+- **Output File Descriptor Closure:** Fixed a bug where `os.Exit(1)` bypassed deferred report file closures in `-o` / `--output`, resulting in truncated logs.
+- **Git Repo Validation:** Ensured Sentinel aborts clean-exits on non-git target paths during pre-commit scans.
+- **Updater & Uninstall Endpoints:** Fixed hardcoded update and uninstall utility URLs to point to version 2 API targets.
+- **Unit Test Alignment:** Updated test suites (`commands_test.go` and `scanner_test.go`) and documentation to align with the new `64` signature rules count.
+
 ## [2.0.5] - 2026-07-07
 
 ### Added

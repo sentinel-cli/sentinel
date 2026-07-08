@@ -699,7 +699,7 @@ func BenchmarkScanner_MassiveMinifiedLine(b *testing.B) {
 	}
 }
 
-func TestScanner_V2_Fiabilidad_Inteligencia(t *testing.T) {
+func TestScanner_V2_Reliability_Intelligence(t *testing.T) {
 	automaton := trie.Build(trie.BuiltinSignatures)
 
 	t.Run("ALLOWLIST: Exact and Glob Matching", func(t *testing.T) {

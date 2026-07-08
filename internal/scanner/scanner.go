@@ -882,7 +882,7 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int) string 
 		return string(after) // fallback
 	}
 
-	after = bytes.TrimLeft(after, "\"'`=: ,() ")
+	after = bytes.TrimLeft(after, "\"'`=: ,() \t\n\r")
 
 	// Truncate at the first closing quote to properly isolate tokens in minified code
 	if qIdx := bytes.IndexAny(after, "\"'`"); qIdx > 0 {
@@ -907,6 +907,18 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int) string 
 	cleaned := cleanTokenBytes(firstField)
 	if len(cleaned) == 0 {
 		return ""
+	}
+	if strings.HasPrefix(sig.ID, "generic-") {
+		// Generic key must have assignment operator (= or :) between prefix and token.
+		idx := bytes.Index(val[offset+1:], cleaned)
+		if idx != -1 {
+			between := val[offset+1 : offset+1+idx]
+			if bytes.IndexByte(between, '=') == -1 && bytes.IndexByte(between, ':') == -1 {
+				return ""
+			}
+		} else {
+			return ""
+		}
 	}
 	return string(cleaned)
 }

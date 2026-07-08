@@ -40,7 +40,7 @@ func TestNewScanCmd(t *testing.T) {
 	}
 
 	// Verify flags are registered
-	flags := []string{"config", "format", "recursive", "verbose", "history", "output"}
+	flags := []string{"config", "format", "recursive", "verbose", "history", "output", "fail-fast"}
 	for _, f := range flags {
 		if flag := cmd.Flag(f); flag == nil {
 			t.Errorf("expected flag %q to be defined", f)
@@ -56,7 +56,7 @@ func TestNewRunCmd(t *testing.T) {
 	}
 
 	// Verify flags are registered
-	flags := []string{"config", "format", "verbose"}
+	flags := []string{"config", "format", "verbose", "fail-fast"}
 	for _, f := range flags {
 		if flag := cmd.Flag(f); flag == nil {
 			t.Errorf("expected flag %q to be defined", f)

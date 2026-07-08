@@ -120,7 +120,7 @@ This command performs the following actions:
 				if err := c.Run(); err != nil {
 					return fmt.Errorf("update failed: %w", err)
 				}
-				fmt.Println("✅ Sentinel successfully updated to the latest version!")
+				fmt.Println("✔ Sentinel successfully updated to the latest version!")
 				return nil
 			}
 
@@ -186,7 +186,7 @@ This command performs the following actions:
 				return fmt.Errorf("failed to safely replace binary (text file busy?): %w", err)
 			}
 
-			fmt.Printf("✅ Sentinel successfully updated to %s!\n", release.TagName)
+			fmt.Printf("✔ Sentinel successfully updated to %s!\n", release.TagName)
 			return nil
 		},
 	}

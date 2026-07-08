@@ -32,6 +32,7 @@ func NewScanCmd() *cobra.Command {
 		verbose    bool
 		history    bool
 		outputPath string
+		failFast   bool
 	)
 
 	cmd := &cobra.Command{
@@ -68,7 +69,7 @@ Examples:
 			if !history && len(args) == 0 {
 				return fmt.Errorf("requires at least 1 arg(s), only received 0")
 			}
-			return runAdHocScan(args, configPath, format, recursive, verbose, history, outputPath)
+			return runAdHocScan(args, configPath, format, recursive, verbose, history, outputPath, failFast)
 		},
 	}
 
@@ -78,11 +79,12 @@ Examples:
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 	cmd.Flags().BoolVar(&history, "history", false, "scan entire git commit history")
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "write scan report to file")
+	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "stop after first finding")
 
 	return cmd
 }
 
-func runAdHocScan(paths []string, configPath, format string, recursive, verbose, history bool, outputPath string) error {
+func runAdHocScan(paths []string, configPath, format string, recursive, verbose, history bool, outputPath string, failFast bool) error {
 	updateChan := updater.CheckForUpdateAsync()
 	startTime := time.Now()
 
@@ -90,13 +92,18 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	if failFast {
+		cfg.FailFast = true
+	}
 	if verbose {
 		cfg.Verbose = true
 	}
 
 	var fileReporter *reporter.Reporter
+	var file *os.File
 	if outputPath != "" {
-		file, err := os.Create(outputPath)
+		var err error
+		file, err = os.Create(outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create output file: %w", err)
 		}
@@ -155,6 +162,9 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 		if len(paths) > 0 {
 			targetDir = paths[0]
 		}
+		if _, err := os.Stat(filepath.Join(targetDir, ".git")); os.IsNotExist(err) {
+			return fmt.Errorf("%q is not a git repository (no .git directory found)", targetDir)
+		}
 		cmd := exec.Command("git", "log", "--all", "-p")
 		cmd.Dir = targetDir
 		stdout, err := cmd.StdoutPipe()
@@ -175,6 +185,9 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 
 		processChunk := func() {
 			if len(currentChunk) == 0 || currentFile == "" {
+				return
+			}
+			if cfg.FailFast && len(allFindings) > 0 {
 				return
 			}
 			displayPath := currentCommit + ":" + currentFile
@@ -199,6 +212,9 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 		}
 
 		for bufScanner.Scan() {
+			if cfg.FailFast && len(allFindings) > 0 {
+				break
+			}
 			line := bufScanner.Bytes()
 
 			if bytes.HasPrefix(line, []byte("commit ")) {
@@ -290,6 +306,14 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 			go func() {
 				defer wg.Done()
 				for filePath := range jobs {
+					if cfg.FailFast {
+						mu.Lock()
+						hasFindings := len(allFindings) > 0
+						mu.Unlock()
+						if hasFindings {
+							continue
+						}
+					}
 					if scanner.HasExcludedExtension(filePath, cfg.ExcludeExtensions) {
 						continue
 					}
@@ -299,6 +323,9 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 
 					info, err := os.Stat(filePath)
 					if err != nil {
+						continue
+					}
+					if !info.Mode().IsRegular() {
 						continue
 					}
 					if info.Size() == 0 || info.Size() > cfg.MaxFileSizeBytes {
@@ -362,6 +389,9 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 	if fileReporter != nil {
 		fileReporter.PrintFindings(allFindings)
 		fileReporter.PrintSummary(allFindings, elapsed, scannedCount)
+		if file != nil {
+			file.Close()
+		}
 	}
 	os.Exit(1)
 	return nil

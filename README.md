@@ -64,7 +64,7 @@ Sentinel uses a **three-tier detection pipeline** built for speed and near-zero 
 
 | Tier | Engine | Purpose |
 |------|--------|---------|
-| 1 — PATTERN | Aho-Corasick automaton | Matches 68 known secret signatures in O(n) time, zero allocations |
+| 1 — PATTERN | Aho-Corasick automaton | Matches 60+ known secret signatures in O(n) time, zero allocations |
 | 2 — ENTROPY | Shannon entropy analysis | Catches unknown secrets by measuring information density |
 | 3 — CONTEXT | Context classifier | Suppresses false positives from comments, test files, and placeholders |
 
@@ -103,17 +103,17 @@ asciinema play https://sentinel-cli.github.io/sentinel/demo.cast
 
 ## Performance
 
-Measured on real-world repositories with Sentinel v2.0.5 against the two most popular alternatives.
+Measured on real-world repositories with Sentinel against the two most popular alternatives.
 
 <details>
 <summary>Filesystem Scan Results (Standard Mode)</summary>
 
 | Repository | Tool | Execution Time | Peak RAM | Findings |
 |:---|:---|:---|:---|:---|
-| sample\_secrets | **Sentinel v2.0.5** | **40 ms** | **11.3 MB** | **2** |
+| sample\_secrets | **Sentinel** | **40 ms** | **11.3 MB** | **2** |
 | | Gitleaks v8.30.1 | 220 ms | 15.0 MB | 1 |
 | | TruffleHog v3.95.7 | 11.41 s | 153.2 MB | 3 |
-| truffleHogRegexes | **Sentinel v2.0.5** | **30 ms** | **11.5 MB** | **0** (Noise Filtered) |
+| truffleHogRegexes | **Sentinel** | **30 ms** | **11.5 MB** | **0** (Noise Filtered) |
 | | Gitleaks v8.30.1 | 210 ms | 16.0 MB | 1 |
 | | TruffleHog v3.95.7 | 7.13 s | 154.5 MB | 0 |
 
@@ -124,10 +124,10 @@ Measured on real-world repositories with Sentinel v2.0.5 against the two most po
 
 | Repository | Tool | Execution Time | Peak RAM | Findings |
 |:---|:---|:---|:---|:---|
-| sample\_secrets | **Sentinel v2.0.5** | **140 ms** | **11.2 MB** | **8** |
+| sample\_secrets | **Sentinel** | **140 ms** | **11.2 MB** | **8** |
 | | Gitleaks v8.30.1 | 160 ms | 16.0 MB | 5 |
 | | TruffleHog v3.95.7 | 9.05 s | 155.7 MB | 3 |
-| truffleHogRegexes | **Sentinel v2.0.5** | **60 ms** | **11.6 MB** | **5** |
+| truffleHogRegexes | **Sentinel** | **60 ms** | **11.6 MB** | **5** |
 | | Gitleaks v8.30.1 | 260 ms | 16.8 MB | 6 |
 | | TruffleHog v3.95.7 | 6.32 s | 152.9 MB | 0 |
 
@@ -295,7 +295,7 @@ A same-line annotation suppresses only that line. A comment-line annotation supp
 ## Signature Coverage
 
 <details>
-<summary>View all 68 builtin signatures</summary>
+<summary>View all builtin signatures</summary>
 
 | Category | Signatures |
 |----------|-----------|
@@ -398,7 +398,7 @@ sentinel uninstall
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/sentinel-cli/sentinel
-    rev: v2.0.5
+    rev: v2.0.6 # Replace with the latest release version
     hooks:
       - id: sentinel
 ```
@@ -444,20 +444,43 @@ exclude_paths:
   - "node_modules/**"
   - "*.lock"
   - "go.sum"
+  - "package-lock.json"
 
 # File extensions to skip (case-insensitive).
 # Default includes images, fonts, audio, video, archives, binaries, office documents.
 exclude_extensions:
   - ".png"
   - ".jpg"
+  - ".jpeg"
   - ".gif"
+  - ".bmp"
+  - ".ico"
+  - ".svg"
+  - ".woff"
+  - ".woff2"
+  - ".ttf"
+  - ".eot"
+  - ".mp4"
+  - ".webm"
+  - ".mp3"
+  - ".ogg"
   - ".zip"
   - ".tar"
   - ".gz"
+  - ".bz2"
+  - ".xz"
+  - ".7z"
+  - ".pdf"
+  - ".doc"
+  - ".docx"
+  - ".xls"
+  - ".xlsx"
   - ".exe"
   - ".dll"
   - ".so"
-  - ".pdf"
+  - ".dylib"
+  - ".a"
+  - ".o"
 
 # Allowlist: findings whose token matches are silently ignored.
 # Supports exact strings and filepath.Match glob patterns.
@@ -544,7 +567,7 @@ The easiest way to integrate Sentinel into your GitHub Actions workflow is by us
 - name: Run Sentinel Git Secrets Scanner
   uses: sentinel-cli/sentinel@v2
   with:
-    version: 'latest' # Optional: version to use (e.g. 'v2.0.5')
+    version: 'latest' # Optional: specific version to use (e.g. 'v2.x.x')
     args: '.'         # Optional: arguments to pass (e.g. "." or "--history .")
     sarif: 'true'     # Optional: set to 'true' to export findings as a SARIF report
 ```
@@ -606,6 +629,7 @@ Scans staged changes only. Invoked automatically by the Git hook.
 | `-o, --output` | | Write report directly to file, preserving pretty stdout logs |
 | `-r, --recursive` | false | Walk subdirectories |
 | `--history` | false | Scan entire Git commit history |
+| `--fail-fast` | false | Stop after the first finding |
 | `-v, --verbose` | false | Debug output to stderr |
 
 </details>
@@ -664,7 +688,7 @@ A background check runs on each invocation, querying the API at most once per 24
 
 ```json
 {
-  "sentinel_version": "v2.0.5",
+  "sentinel_version": "v2.x.x",
   "status": "blocked",
   "scanned_files": 4,
   "elapsed_ms": 5,
