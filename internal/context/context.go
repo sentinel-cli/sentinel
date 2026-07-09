@@ -271,6 +271,23 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 		strings.HasPrefix(lowerToken, "/lib/") || regexp.MustCompile(`^[a-zA-Z]:\\`).MatchString(token) {
 		return SafeFilePath
 	}
+	// Env-var based paths: $XDG_DATA_HOME/..., $HOME/..., $USER/..., etc.
+	// Entropy strips the leading '$', so also match without it.
+	if strings.HasPrefix(token, "$XDG_") || strings.HasPrefix(token, "$HOME/") ||
+		strings.HasPrefix(token, "$USER/") || strings.HasPrefix(token, "$LOCALAPPDATA") ||
+		strings.HasPrefix(token, "$APPDATA") || strings.HasPrefix(token, "${XDG_") ||
+		strings.HasPrefix(token, "${HOME}") ||
+		strings.HasPrefix(token, "XDG_DATA") || strings.HasPrefix(token, "XDG_CONFIG") ||
+		strings.HasPrefix(token, "XDG_CACHE") || strings.HasPrefix(token, "XDG_RUNTIME") ||
+		strings.HasPrefix(token, "LOCALAPPDATA") || strings.HasPrefix(token, "APPDATA") {
+		return SafeFilePath
+	}
+	// Also catch when the raw line contains an env-var path reference
+	if strings.Contains(lineContent, "$XDG_") || strings.Contains(lineContent, "$HOME/") {
+		if strings.Contains(token, "/") {
+			return SafeFilePath
+		}
+	}
 	if (strings.Count(token, "/") >= 2 || strings.Count(token, "\\") >= 2) &&
 		(strings.HasSuffix(lowerToken, "png") || strings.HasSuffix(lowerToken, "jpg") ||
 			strings.HasSuffix(lowerToken, "jpeg") || strings.HasSuffix(lowerToken, "gif") ||
@@ -286,6 +303,88 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 	// ── Check 15: XSRF/CSRF token suppression ────────────────────────────────
 	if strings.Contains(lowerVarName, "xsrf") || strings.Contains(lowerVarName, "csrf") {
 		return SafeVariableName
+	}
+
+	// ── Check 16: Input prompts and read commands ─────────────────────────────
+	// Reject lines containing standard shell/programming input prompt constructs.
+	if strings.Contains(lowerLine, "read -p ") || strings.Contains(lowerLine, "read -r ") ||
+		strings.Contains(lowerLine, "read -s ") || strings.HasPrefix(strings.TrimSpace(lowerLine), "read ") ||
+		strings.Contains(lowerLine, "input(") || strings.Contains(lowerLine, "raw_input(") ||
+		strings.Contains(lowerLine, "scanln(") || strings.Contains(lowerLine, "scanf(") {
+		return SafeVariableName
+	}
+
+	// ── Check 17: Constant IDs, UUIDs, and Hashes ─────────────────────────────
+	// Reject generic entropy matches when the variable name indicates it is an ID,
+	// UUID, GUID, hash, or message identifier.
+	if sigID == "hex" || sigID == "base64" || strings.Contains(sigID, "high-entropy") {
+		if strings.Contains(lowerVarName, "id") || strings.Contains(lowerVarName, "uuid") ||
+			strings.Contains(lowerVarName, "guid") || strings.Contains(lowerVarName, "hash") ||
+			strings.Contains(lowerVarName, "md5") || strings.Contains(lowerVarName, "sha") ||
+			strings.Contains(lowerVarName, "sha256") || strings.Contains(lowerVarName, "sha512") ||
+			strings.Contains(lowerVarName, "sha1") || strings.Contains(lowerVarName, "checksum") ||
+			strings.Contains(lowerVarName, "fingerprint") || strings.Contains(lowerVarName, "digest") {
+			return SafeVariableName
+		}
+	}
+
+	return Real
+}
+
+// ClassifyWithPrev performs additional context classification using the previous
+// line content. This handles multiline constructs such as C #define macros where
+// the variable name is on one line and the value (hash) is on the next line.
+//
+// Example (C kernel driver):
+//
+//	#define HF_L3_FRAME_PLAN_SHA256 \       ← previous line
+//	    "b4422b629310b822..."               ← current line (token detected here)
+//
+// In this case the variable name contains "SHA256" but it is on the previous line,
+// not the current one, so the regular Classify cannot see it.
+func ClassifyWithPrev(filePath, lineContent, prevLineContent, token, sigID string) Decision {
+	if sigID != "hex" && sigID != "base64" && !strings.Contains(sigID, "high-entropy") {
+		return Real
+	}
+
+	prevTrimmed := strings.TrimSpace(prevLineContent)
+	lowerPrev := strings.ToLower(prevTrimmed)
+
+	// ── Check A: C/C++ #define multiline SHA/hash macro ───────────────────────
+	// Handles: #define HF_L3_FRAME_PLAN_SHA256 \
+	//              "b4422b..."  ← detected here
+	if strings.HasPrefix(prevTrimmed, "#define ") || strings.HasSuffix(prevTrimmed, "\\") {
+		if strings.Contains(lowerPrev, "sha256") || strings.Contains(lowerPrev, "sha512") ||
+			strings.Contains(lowerPrev, "sha1") || strings.Contains(lowerPrev, "sha_") ||
+			strings.Contains(lowerPrev, "_sha") || strings.Contains(lowerPrev, "hash") ||
+			strings.Contains(lowerPrev, "checksum") || strings.Contains(lowerPrev, "digest") ||
+			strings.Contains(lowerPrev, "fingerprint") || strings.Contains(lowerPrev, "hmac") {
+			return SafeVariableName
+		}
+	}
+
+	// ── Check B: Previous line CONTAINS a SHA/hash/commit keyword anywhere ────
+	// Covers Python/shell list entries where the previous element names a hash:
+	//   "#define HF_L3_FRAME_PLAN_SHA256",   ← previous (Python string)
+	//   "b4422b629310..."                    ← current (token detected)
+	// Also covers git commit SHAs listed after frame_hash, commit_sha, etc.
+	if strings.Contains(lowerPrev, "sha256") || strings.Contains(lowerPrev, "sha512") ||
+		strings.Contains(lowerPrev, "sha1") || strings.Contains(lowerPrev, "_sha") ||
+		strings.Contains(lowerPrev, "sha_") || strings.Contains(lowerPrev, "hash") ||
+		strings.Contains(lowerPrev, "commit") || strings.Contains(lowerPrev, "checksum") ||
+		strings.Contains(lowerPrev, "digest") || strings.Contains(lowerPrev, "fingerprint") {
+		return SafeVariableName
+	}
+
+	// ── Check C: 40-char hex git commit SHA on current line ───────────────────
+	// A 40-char hex string that is pure SHA1 length — most likely a git commit.
+	if (sigID == "hex" || strings.Contains(sigID, "high-entropy")) && len(token) == 40 {
+		lowerLine := strings.ToLower(lineContent)
+		if strings.Contains(lowerLine, "hash") || strings.Contains(lowerLine, "commit") ||
+			strings.Contains(lowerLine, "sha") || strings.Contains(lowerLine, "rev") ||
+			strings.Contains(lowerLine, "parent") || strings.Contains(lowerLine, "blame") {
+			return SafeVariableName
+		}
 	}
 
 	return Real

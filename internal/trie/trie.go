@@ -130,15 +130,20 @@ var BuiltinSignatures = []Signature{
 		Validator: regexp.MustCompile(`[a-z]`)},
 
 	// ── DigitalOcean ─────────────────────────────────────────────────────────
-	{ID: "digitalocean-token", Description: "DigitalOcean Personal Access Token", Prefix: "dop_v1_", Severity: "CRITICAL"},
+	{ID: "digitalocean-token", Description: "DigitalOcean Personal Access Token", Prefix: "dop_v1_", Severity: "CRITICAL",
+		Validator: regexp.MustCompile(`^dop_v1_[a-fA-F0-9]{64}$`)},
 
 	// ── HuggingFace ──────────────────────────────────────────────────────────
-	{ID: "huggingface-token", Description: "HuggingFace API Token", Prefix: "hf_", Severity: "HIGH"},
+	{ID: "huggingface-token", Description: "HuggingFace API Token", Prefix: "hf_", Severity: "HIGH",
+		Validator: regexp.MustCompile(`^hf_[a-zA-Z0-9]{34}$`)},
 
 	// ── Shopify ──────────────────────────────────────────────────────────────
-	{ID: "shopify-custom-token", Description: "Shopify Custom App Token", Prefix: "shpca_", Severity: "HIGH"},
-	{ID: "shopify-private-token", Description: "Shopify Private App Token", Prefix: "shppa_", Severity: "HIGH"},
-	{ID: "shopify-access-token", Description: "Shopify App Access Token", Prefix: "shpat_", Severity: "CRITICAL"},
+	{ID: "shopify-custom-token", Description: "Shopify Custom App Token", Prefix: "shpca_", Severity: "HIGH",
+		Validator: regexp.MustCompile(`^shpca_[a-fA-F0-9]{32}$`)},
+	{ID: "shopify-private-token", Description: "Shopify Private App Token", Prefix: "shppa_", Severity: "HIGH",
+		Validator: regexp.MustCompile(`^shppa_[a-fA-F0-9]{32}$`)},
+	{ID: "shopify-access-token", Description: "Shopify App Access Token", Prefix: "shpat_", Severity: "CRITICAL",
+		Validator: regexp.MustCompile(`^shpat_[a-fA-F0-9]{32}$`)},
 
 	// ── Generic indicators ────────────────────────────────────────────────────
 	{ID: "generic-password-key", Description: "Hardcoded password assignment", Prefix: "password", Severity: "MEDIUM"},
@@ -146,8 +151,14 @@ var BuiltinSignatures = []Signature{
 	{ID: "generic-api-key", Description: "Hardcoded api_key assignment", Prefix: "api_key", Severity: "MEDIUM"},
 	{ID: "generic-token-key", Description: "Hardcoded token assignment", Prefix: "token", Severity: "MEDIUM"},
 	{ID: "generic-auth-key", Description: "Hardcoded auth credential assignment", Prefix: "auth", Severity: "MEDIUM"},
-	{ID: "npm-auth-token", Description: "npm registry authentication token", Prefix: "_authToken", Severity: "CRITICAL"},
-	{ID: "npm-auth-key", Description: "npm registry authentication credential", Prefix: "_auth", Severity: "HIGH"},
+	{ID: "npm-auth-token", Description: "npm registry authentication token", Prefix: "_authToken", Severity: "CRITICAL",
+		Validator: regexp.MustCompile(`^[A-Za-z0-9+/=_-]{20,}$`)},
+	// npm-auth-key matches "_auth" in .npmrc files. Real npm _auth values are
+	// pure base64 strings (letters, digits, +, /, =) with NO underscores.
+	// Variable names like _AUTH_HIER_FENCE_RE contain underscores and uppercase,
+	// so we reject tokens that have underscores OR are all-uppercase identifiers.
+	{ID: "npm-auth-key", Description: "npm registry authentication credential", Prefix: "_auth", Severity: "HIGH",
+		Validator: regexp.MustCompile(`^[A-Za-z0-9+/=]{8,}={0,2}$`)},
 
 	// ── Framework specific secret keys ────────────────────────────────────────
 	{ID: "django-secret-key", Description: "Django SECRET_KEY assignment", Prefix: "SECRET_KEY =", Severity: "HIGH"},

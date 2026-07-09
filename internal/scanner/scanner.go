@@ -247,6 +247,7 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 	lineNum := 0
 	start := 0
 	skipNextLine := false
+	var prevLineTrim []byte // track the previous trimmed line for multiline macro context
 	for start < len(content) {
 		lineNum++
 		end := bytes.IndexByte(content[start:], '\n')
@@ -378,7 +379,7 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 					startIdx := m.Offset - len(m.Sig.Prefix) + 1
 					if startIdx > 0 {
 						prevChar := lineTrim[startIdx-1]
-						if (prevChar >= 'a' && prevChar <= 'z') || (prevChar >= 'A' && prevChar <= 'Z') || (prevChar >= '0' && prevChar <= '9') {
+						if (prevChar >= 'a' && prevChar <= 'z') || (prevChar >= 'A' && prevChar <= 'Z') || (prevChar >= '0' && prevChar <= '9') || prevChar == '_' {
 							continue
 						}
 					}
@@ -400,6 +401,9 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 				decision := sentinelcontext.Real
 				if !s.opts.DisableContext {
 					decision = sentinelcontext.Classify(filePath, string(rawLine), token, m.Sig.ID)
+					if decision == sentinelcontext.Real {
+						decision = sentinelcontext.ClassifyWithPrev(filePath, string(rawLine), string(prevLineTrim), token, m.Sig.ID)
+					}
 				}
 				if decision == sentinelcontext.Real {
 					if s.isAllowed(token) {
@@ -463,7 +467,7 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 						startIdx := m.Offset - len(m.Sig.Prefix) + 1
 						if startIdx > 0 {
 							prevChar := compVal[startIdx-1]
-							if (prevChar >= 'a' && prevChar <= 'z') || (prevChar >= 'A' && prevChar <= 'Z') || (prevChar >= '0' && prevChar <= '9') {
+							if (prevChar >= 'a' && prevChar <= 'z') || (prevChar >= 'A' && prevChar <= 'Z') || (prevChar >= '0' && prevChar <= '9') || prevChar == '_' {
 								continue
 							}
 						}
@@ -544,7 +548,7 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 								startIdx := m.Offset - len(m.Sig.Prefix) + 1
 								if startIdx > 0 {
 									prevChar := decodedVal[startIdx-1]
-									if (prevChar >= 'a' && prevChar <= 'z') || (prevChar >= 'A' && prevChar <= 'Z') || (prevChar >= '0' && prevChar <= '9') {
+									if (prevChar >= 'a' && prevChar <= 'z') || (prevChar >= 'A' && prevChar <= 'Z') || (prevChar >= '0' && prevChar <= '9') || prevChar == '_' {
 										continue
 									}
 								}
@@ -616,6 +620,9 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 						decision := sentinelcontext.Real
 						if !s.opts.DisableContext {
 							decision = sentinelcontext.Classify(filePath, string(rawLine), h.Token, h.Kind)
+							if decision == sentinelcontext.Real {
+								decision = sentinelcontext.ClassifyWithPrev(filePath, string(rawLine), string(prevLineTrim), h.Token, h.Kind)
+							}
 						}
 						if decision == sentinelcontext.Real {
 							idx := strings.Index(string(rawLine), h.Token)
@@ -803,6 +810,8 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 				}
 			}
 		}
+		// Update prevLineTrim for the next iteration (multiline macro context)
+		prevLineTrim = append(prevLineTrim[:0], lineTrim...)
 	}
 
 	// ── Apply Allowlist Patterns ────────────────────────────────────────────
@@ -1304,6 +1313,25 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 		}
 		// If it's a property path (contains dot) and it's from a generic rule, reject it
 		if strings.Contains(token, ".") {
+			return false
+		}
+	}
+
+	// Reject all-uppercase snake_case constants (e.g. CALIBRATION_PROMPTS_FILE)
+	// for generic rules and generic entropy rules (hex, base64, high-entropy).
+	if strings.HasPrefix(sigID, "generic-") || sigID == "hex" || sigID == "base64" || strings.Contains(sigID, "high-entropy") {
+		isAllCapsConstant := true
+		hasLetter := false
+		for _, r := range token {
+			if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
+				hasLetter = true
+			}
+			if !((r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+				isAllCapsConstant = false
+				break
+			}
+		}
+		if isAllCapsConstant && hasLetter {
 			return false
 		}
 	}

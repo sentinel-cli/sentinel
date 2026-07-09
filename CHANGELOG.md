@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Database DSN & URL Basic Auth Signatures:** Added signatures to detect hardcoded credentials inside Postgres, MySQL, Redis, AMQP, and generic HTTP/HTTPS basic auth URLs.
 - **Memory Consumption Optimization:** Integrated garbage collection intervals using `debug.FreeOSMemory()` every 250 files (in history scans) and 500 files (in directory scans), reducing maximum resident memory by over 23%.
 - **New High-Value Signatures:** Added built-in signatures for PyPI tokens, Google OAuth client secrets, GitLab runner tokens, Square access tokens, and PuTTY private keys.
+- **C-Macro SHA Hash Suppression (Check 14):** Upgraded `ClassifyWithPrev` context filter to look ahead from previous `#define` statements, effectively preventing false positives triggered by multi-line C-macros ending with `\` that define SHA checksums (e.g., `HF_L3_FRAME_PLAN_SHA256`).
+- **Dynamic XDG Data Home Suppression:** Added a check to `isKnownSafeFile` to correctly suppress stripped environment paths (`XDG_DATA_HOME/locales`) during entropy analysis, complementing the previous `$` removal filter.
+
 
 ### Fixed
 - **Recursive Lock File Exclusion:** Upgraded exclude path glob matcher to run filename matching against the path's base name, ensuring files like `*.lock` and `go.sum` are correctly excluded from subdirectories recursively.
@@ -50,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **URL Scheme Colons Ignored:** Ignored `://` scheme colons in `isAssignmentOrKeyword` to prevent scheme truncation.
 - **Config & Env Comment Bypass:** Bypassed comment-prefix checks (`//` and `#`) inside configuration and environment files (like `.npmrc`, `.netrc`, `.env`) because double slashes/hashes are common property prefixes there.
 - **Overlapping Token Deduplication:** Upgraded `isDuplicateMatch` to handle overlapping tokens on the same line, prioritizing findings with higher severity and cleaner tokens without prefix junk.
+- **npm-token Base64 Rejection:** Relaxed the `npm-auth-key` validation regex to allow standard Base64 characters, fixing false positive collisions against all-uppercase snake-case constants with underscores (e.g. `CALIBRATION_PROMPTS_FILE`).
+- **Generic Snake Case Rejection:** Modified `isPlausibleSecretToken` to completely reject all-uppercase snake_case variables when evaluating generic or entropy-based signatures, significantly reducing noise in C and Python codebases.
+- **Multi-line Context Parsing:** Fixed `prevLineTrim` memory tracking in the main scanner loop to accurately retain the previous line's context across sequential loops, essential for robust `ClassifyWithPrev` decisions.
+
 
 ## [2.0.5] - 2026-07-07
 

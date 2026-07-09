@@ -108,28 +108,28 @@ Measured on real-world repositories with Sentinel against the two most popular a
 <details>
 <summary>Filesystem Scan Results (Standard Mode)</summary>
 
-| Repository | Tool | Execution Time | Peak RAM | Findings |
-|:---|:---|:---|:---|:---|
-| sample\_secrets | **Sentinel** | **40 ms** | **11.3 MB** | **2** |
-| | Gitleaks v8.30.1 | 220 ms | 15.0 MB | 1 |
-| | TruffleHog v3.95.7 | 11.41 s | 153.2 MB | 3 |
-| truffleHogRegexes | **Sentinel** | **30 ms** | **11.5 MB** | **0** (Noise Filtered) |
-| | Gitleaks v8.30.1 | 210 ms | 16.0 MB | 1 |
-| | TruffleHog v3.95.7 | 7.13 s | 154.5 MB | 0 |
+| Repository | Tool | Execution Time | Peak RAM | CPU% | Findings |
+|:---|:---|:---|:---|:---|:---|
+| sample\_secrets | **Sentinel** | **135 ms** | **10.1 MB** | **30%** | **2** |
+| | Gitleaks v8.30.1 | 334 ms | 37.4 MB | 71% | 1 |
+| | TruffleHog v3.95.8 | 7,201 ms | 210.7 MB | 100% | 2 |
+| truffleHogRegexes | **Sentinel** | **144 ms** | **11.0 MB** | **42%** | **3** |
+| | Gitleaks v8.30.1 | 415 ms | 38.1 MB | 77% | 1 |
+| | TruffleHog v3.95.8 | 7,338 ms | 208.7 MB | 102% | 0 |
 
 </details>
 
 <details>
 <summary>Git History Scan Results (History Mode)</summary>
 
-| Repository | Tool | Execution Time | Peak RAM | Findings |
-|:---|:---|:---|:---|:---|
-| sample\_secrets | **Sentinel** | **140 ms** | **11.2 MB** | **7** |
-| | Gitleaks v8.30.1 | 160 ms | 16.0 MB | 5 |
-| | TruffleHog v3.95.7 | 9.05 s | 155.7 MB | 3 |
-| truffleHogRegexes | **Sentinel** | **60 ms** | **11.6 MB** | **5** |
-| | Gitleaks v8.30.1 | 260 ms | 16.8 MB | 6 |
-| | TruffleHog v3.95.7 | 6.32 s | 152.9 MB | 0 |
+| Repository | Tool | Execution Time | Peak RAM | CPU% | Findings |
+|:---|:---|:---|:---|:---|:---|
+| sample\_secrets | **Sentinel** | **280 ms** | **9.9 MB** | **31%** | **2** |
+| | Gitleaks v8.30.1 | 381 ms | 38.2 MB | 74% | 1 |
+| | TruffleHog v3.95.8 | 7,531 ms | 205.1 MB | 98% | 2 |
+| truffleHogRegexes | **Sentinel** | **309 ms** | **10.2 MB** | **31%** | **5** |
+| | Gitleaks v8.30.1 | 415 ms | 37.1 MB | 88% | 8 |
+| | TruffleHog v3.95.8 | 7,231 ms | 207.6 MB | 101% | 0 |
 
 </details>
 
