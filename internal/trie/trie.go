@@ -145,6 +145,9 @@ var BuiltinSignatures = []Signature{
 	{ID: "generic-secret-key", Description: "Hardcoded secret assignment", Prefix: "secret", Severity: "MEDIUM"},
 	{ID: "generic-api-key", Description: "Hardcoded api_key assignment", Prefix: "api_key", Severity: "MEDIUM"},
 	{ID: "generic-token-key", Description: "Hardcoded token assignment", Prefix: "token", Severity: "MEDIUM"},
+	{ID: "generic-auth-key", Description: "Hardcoded auth credential assignment", Prefix: "auth", Severity: "MEDIUM"},
+	{ID: "npm-auth-token", Description: "npm registry authentication token", Prefix: "_authToken", Severity: "CRITICAL"},
+	{ID: "npm-auth-key", Description: "npm registry authentication credential", Prefix: "_auth", Severity: "HIGH"},
 
 	// ── Framework specific secret keys ────────────────────────────────────────
 	{ID: "django-secret-key", Description: "Django SECRET_KEY assignment", Prefix: "SECRET_KEY =", Severity: "HIGH"},
@@ -159,6 +162,21 @@ var BuiltinSignatures = []Signature{
 
 	// ── Certificates / Private Keys ───────────────────────────────────────────
 	{ID: "pem-private-key", Description: "PEM Formatted Private Key", Prefix: "-----BEGIN ", Validator: regexp.MustCompile(`(?i)^-----BEGIN [A-Z ]*PRIVATE KEY-----`), Severity: "CRITICAL"},
+
+	// ── Additional High-Value Signatures ──────────────────────────────────────
+	{ID: "pypi-token", Description: "PyPI Upload Token", Prefix: "pypi-", Severity: "CRITICAL", Validator: regexp.MustCompile(`(?i)^pypi-AgEIcHlwaS5vcmc[A-Za-z0-9-_]{50,100}$`)},
+	{ID: "google-client-secret", Description: "Google OAuth Client Secret", Prefix: "GOCSPX-", Severity: "CRITICAL", Validator: regexp.MustCompile(`^GOCSPX-[A-Za-z0-9-_]{24,40}$`)},
+	{ID: "gitlab-runner-token", Description: "GitLab Runner Token", Prefix: "glrt-", Severity: "HIGH", Validator: regexp.MustCompile(`^glrt-[A-Za-z0-9-_]{20}$`)},
+	{ID: "square-access-token", Description: "Square Access Token", Prefix: "sq0atp-", Severity: "CRITICAL", Validator: regexp.MustCompile(`^sq0atp-[A-Za-z0-9-_]{22}$`)},
+	{ID: "putty-private-key", Description: "PuTTY Private Key", Prefix: "PuTTY-User-Key-File-", Severity: "CRITICAL"},
+	{ID: "postgres-dsn", Description: "Postgres Connection String with Password", Prefix: "postgres://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^postgres(?:ql)?://[^:\s]+:[^@\s]+@`)},
+	{ID: "postgresql-dsn", Description: "Postgres Connection String with Password", Prefix: "postgresql://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^postgres(?:ql)?://[^:\s]+:[^@\s]+@`)},
+	{ID: "redis-dsn", Description: "Redis Connection String with Password", Prefix: "redis://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^redis://[^:\s]*:[^@\s]+@`)},
+	{ID: "mysql-dsn", Description: "MySQL Connection String with Password", Prefix: "mysql://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^mysql://[^:\s]+:[^@\s]+@`)},
+	{ID: "amqp-dsn", Description: "AMQP Connection String with Password", Prefix: "amqp://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^amqps?://[^:\s]+:[^@\s]+@`)},
+	{ID: "amqps-dsn", Description: "AMQP Connection String with Password", Prefix: "amqps://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^amqps?://[^:\s]+:[^@\s]+@`)},
+	{ID: "url-basic-auth", Description: "URL with Basic Auth Credentials", Prefix: "https://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^https?://[^:\s]+:[^@\s]+@[a-zA-Z0-9.-]+`)},
+	{ID: "url-basic-auth-http", Description: "URL with Basic Auth Credentials", Prefix: "http://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^https?://[^:\s]+:[^@\s]+@[a-zA-Z0-9.-]+`)},
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -289,12 +307,19 @@ func toLower(b byte) byte {
 // or is one of the generic keywords.
 func isAssignmentOrKeyword(s string) bool {
 	upper := strings.ToUpper(s)
-	if upper == "PASSWORD" || upper == "SECRET" || upper == "API_KEY" || upper == "TOKEN" {
+	if upper == "PASSWORD" || upper == "SECRET" || upper == "API_KEY" || upper == "TOKEN" || upper == "AUTH" {
+		return true
+	}
+	if strings.Contains(upper, "PASSWORD") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "TOKEN") || strings.Contains(upper, "AUTH") {
 		return true
 	}
 	for i := 0; i < len(s); i++ {
 		b := s[i]
 		if b == '=' || b == ':' {
+			// Skip if it is part of a URL scheme separator (://)
+			if b == ':' && i+2 < len(s) && s[i+1] == '/' && s[i+2] == '/' {
+				continue
+			}
 			return true
 		}
 	}

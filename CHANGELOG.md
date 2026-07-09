@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart Directory test/mock path globbing:** Upgraded `IsTestFilePath` context filter to recursively match directory names containing `test`, `mock`, `fixture`, and `testdata` as substrings (e.g. `mock-policy-server`, `testWorkspace`), extending context-aware false positive suppression to multi-language test folder structures.
 - **Context-aware Mock/Test/Fake value filter (Check 11):** Implemented a heuristic check in `Classify` to automatically suppress generic rules (e.g. `generic-token-key`, `generic-password-key`) if the token value contains mock, test, dummy, or fake keywords (e.g. `test-token`, `mock_value`, `fake-token`), while preserving specific signatures (e.g. `aws-access-key`, `stripe-live-secret`) used in test assertions.
 - **BIP-39 Mnemonic context-aware filtering:** Integrated `IsTestFilePath` check into the BIP-39 mnemonic recovery seed scanner, preventing dummy/mock recovery phrases in test fixtures from being flagged.
+- **Generic Auth and npm Signatures:** Added signatures for generic `"auth"`, and npm-specific `_auth` and `_authToken` (npm classic tokens) to the BuiltinSignatures.
+- **Database DSN & URL Basic Auth Signatures:** Added signatures to detect hardcoded credentials inside Postgres, MySQL, Redis, AMQP, and generic HTTP/HTTPS basic auth URLs.
+- **Memory Consumption Optimization:** Integrated garbage collection intervals using `debug.FreeOSMemory()` every 250 files (in history scans) and 500 files (in directory scans), reducing maximum resident memory by over 23%.
+- **New High-Value Signatures:** Added built-in signatures for PyPI tokens, Google OAuth client secrets, GitLab runner tokens, Square access tokens, and PuTTY private keys.
 
 ### Fixed
 - **Recursive Lock File Exclusion:** Upgraded exclude path glob matcher to run filename matching against the path's base name, ensuring files like `*.lock` and `go.sum` are correctly excluded from subdirectories recursively.
@@ -31,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Output File Descriptor Closure:** Fixed a bug where `os.Exit(1)` bypassed deferred report file closures in `-o` / `--output`, resulting in truncated logs.
 - **Git Repo Validation:** Ensured Sentinel aborts clean-exits on non-git target paths during pre-commit scans.
 - **Updater & Uninstall Endpoints:** Fixed hardcoded update and uninstall utility URLs to point to version 2 API targets.
-- **Unit Test Alignment:** Updated test suites (`commands_test.go` and `scanner_test.go`) and documentation to align with the new `64` signature rules count.
+- **Unit Test Alignment:** Updated test suites (`commands_test.go` and `scanner_test.go`) and documentation to align with the new `80` signature rules count.
 - **Backward-Searching LHS variable isolation:** Upgraded `extractVarName` to search backwards from the token's position, linking tokens to their precise closest assignment operators (`=`, `:`, `:=`) and isolating the correct LHS variable name in complex lines with multiple assignments (e.g. minified JS files).
 - **Parentheses detection in token extraction:** Hardened `extractTokenFromOffset` to reject fields containing parentheses `(` or `)` before trimming, preventing function calls (e.g. `mint_connection_token()`) from being erroneously matched by generic prefix rules.
 - **Strict key-extension entropy bypass:** Excluded entropy analysis (Tier 2) on files with cryptographically key/certificate extensions (`.pem`, `.key`, `.rsa`, `.pub`, `.crt`), preventing line-by-line redundant high-entropy base64 alerts on private key contents already matched by `pem-private-key` signature rules.
@@ -39,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **urn: URI scheme exclusion:** Added check to `isPlausibleSecretToken` to reject tokens starting with `urn:` prefix, preventing OAuth token-type URIs from triggering generic rules.
 - **Strict npm-token regex validator:** Hardened the `npm-token` signature in Trie rules with a strict regular expression validator requiring `npm_` to be followed by at least 36 alphanumeric characters, eliminating false positives on icon file names (e.g. `npm_icon.png`, `npm_ignored.png`).
 - **Component Governance and Blame file suppression:** Added Microsoft Component Governance manifests (`cgmanifest.json`), Git blame suppression files (`.git-blame-ignore-revs`), and build manifests (`product.json`) to `isKnownSafeFile` exclusions to filter out SHA-256/512 hashes.
+- **Directory Path Exclusion Bug:** Fixed target-relative path resolution during directory walking, resolving directory exclusion bugs in folders containing keyword patterns like `test`.
+- **Math & Character Set False Positive Suppression:** Hardened sequential-character checks to ignore Base32/Base64 character sets (12+ sequential characters) and refined floating-point notation checks to ignore scientific e-notation in entropy matching.
+- **Space-Separated Assignment Parsing:** Allows space-separated assignments (like `password pass123` in `.netrc` and `.esmtprc`) in configuration/environment files while enforcing assignment operators (`=` or `:`) only in source code files.
+- **DSN/URL Scheme Parser Integration:** Fixed token extraction truncation at `/` and `@` for DSN/URL rules, and bypassed protocol lookups in `isPlausibleSecretToken`.
+- **URL Scheme Colons Ignored:** Ignored `://` scheme colons in `isAssignmentOrKeyword` to prevent scheme truncation.
+- **Config & Env Comment Bypass:** Bypassed comment-prefix checks (`//` and `#`) inside configuration and environment files (like `.npmrc`, `.netrc`, `.env`) because double slashes/hashes are common property prefixes there.
+- **Overlapping Token Deduplication:** Upgraded `isDuplicateMatch` to handle overlapping tokens on the same line, prioritizing findings with higher severity and cleaner tokens without prefix junk.
 
 ## [2.0.5] - 2026-07-07
 

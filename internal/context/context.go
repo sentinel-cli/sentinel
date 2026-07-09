@@ -9,6 +9,7 @@
 package context
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
@@ -27,6 +28,8 @@ var safeVariableWords = []string{
 	"sample", "fixture", "stub", "lorem", "foobar",
 	"your_", "your-", "insert_", "replace_", "changeme",
 	"redacted", "sanitized", "censored",
+	"test", "example", "demo", "alphabet", "charset",
+	"digits", "table", "chars",
 }
 
 // safeCommentPrefixes are line prefixes (after trimming whitespace) that
@@ -137,18 +140,28 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 	// ── Check 2: Commented-out line ──────────────────────────────────────────
 	trimmed := strings.TrimLeftFunc(lineContent, unicode.IsSpace)
 	isPEM := strings.HasPrefix(trimmed, "-----BEGIN ")
-	for _, prefix := range safeCommentPrefixes {
-		if strings.HasPrefix(trimmed, prefix) {
-			if prefix == "--" && isPEM {
-				continue
+	ext := strings.ToLower(filepath.Ext(filePath))
+	isConfigOrEnv := ext == ".npmrc" || ext == ".netrc" || ext == ".env" || ext == ".json" || ext == ".yaml" || ext == ".yml" || strings.HasPrefix(filepath.Base(filePath), ".")
+	if !isConfigOrEnv {
+		for _, prefix := range safeCommentPrefixes {
+			if strings.HasPrefix(trimmed, prefix) {
+				if prefix == "--" && isPEM {
+					continue
+				}
+				return SafeComment
 			}
-			return SafeComment
 		}
 	}
 
 	// ── Check 3: UUID pattern ────────────────────────────────────────────────
 	if uuidPattern.MatchString(token) {
-		return SafeUUID
+		lowerSig := strings.ToLower(sigID)
+		isCredSig := strings.Contains(lowerSig, "token") || strings.Contains(lowerSig, "password") || strings.Contains(lowerSig, "secret") || strings.Contains(lowerSig, "auth") || strings.Contains(lowerSig, "key")
+		lowerLine := strings.ToLower(lineContent)
+		isCredentialAssign := isCredSig || strings.Contains(lowerLine, "token") || strings.Contains(lowerLine, "pass") || strings.Contains(lowerLine, "secret") || strings.Contains(lowerLine, "auth") || strings.Contains(lowerLine, "key")
+		if !isCredentialAssign {
+			return SafeUUID
+		}
 	}
 
 	// ── Check 4: Version string ───────────────────────────────────────────────
@@ -218,6 +231,29 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 			strings.Contains(lowerToken, "test_token") || strings.Contains(lowerToken, "fake-token") ||
 			strings.Contains(lowerToken, "fake_token") {
 			return SafeVariableName
+		}
+	}
+
+	// ── Check 12 & 13: High-Entropy false positive checks ────────────────────
+	if sigID == "hex" || sigID == "base64" || strings.Contains(sigID, "high-entropy") {
+		// ── Check 12: Scientific float / Hex constants without letters a-d/f ────
+		if strings.Contains(sigID, "hex") {
+			hasOtherHexLetter := false
+			for i := 0; i < len(token); i++ {
+				c := token[i] | 0x20
+				if (c >= 'a' && c <= 'd') || c == 'f' {
+					hasOtherHexLetter = true
+					break
+				}
+			}
+			if !hasOtherHexLetter {
+				return SafeVersionString
+			}
+		}
+
+		// ── Check 13: Sequential characters (alphabets, character sets) ──────────
+		if isSequential(token) {
+			return SafeVersionString
 		}
 	}
 
@@ -352,4 +388,36 @@ func cleanIdentifier(s string) string {
 		}
 	}
 	return sb.String()
+}
+
+// isSequential returns true when the token contains long runs of sequential characters,
+// which indicates it is an alphabet or character set definition rather than a secret.
+func isSequential(s string) bool {
+	if len(s) < 6 {
+		return false
+	}
+	// Lowercase and remove consecutive duplicates
+	var cleaned []rune
+	for _, r := range strings.ToLower(s) {
+		if len(cleaned) == 0 || r != cleaned[len(cleaned)-1] {
+			cleaned = append(cleaned, r)
+		}
+	}
+	if len(cleaned) < 6 {
+		return false
+	}
+	maxRun := 1
+	currentRun := 1
+	for i := 1; i < len(cleaned); i++ {
+		diff := int(cleaned[i]) - int(cleaned[i-1])
+		if diff == 1 || diff == -1 {
+			currentRun++
+			if currentRun > maxRun {
+				maxRun = currentRun
+			}
+		} else {
+			currentRun = 1
+		}
+	}
+	return maxRun >= 12
 }

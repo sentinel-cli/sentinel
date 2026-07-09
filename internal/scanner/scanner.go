@@ -111,8 +111,13 @@ func New(automaton *trie.Automaton, opts Options) *Scanner {
 // isDuplicateMatch checks if a new Finding's token already exists in the matches slice.
 func (s *Scanner) isDuplicateMatch(matches []Finding, newMatch Finding) bool {
 	for _, m := range matches {
-		if m.FilePath == newMatch.FilePath && m.Line == newMatch.Line && m.SignatureID == newMatch.SignatureID {
-			return true
+		if m.FilePath == newMatch.FilePath && m.Line == newMatch.Line {
+			if m.Token == newMatch.Token {
+				return true
+			}
+			if strings.Contains(newMatch.Token, m.Token) || strings.Contains(m.Token, newMatch.Token) {
+				return true
+			}
 		}
 		if newMatch.DetectionTier == TierEntropy || m.DetectionTier == TierEntropy {
 			if strings.Contains(newMatch.Token, m.Token) || strings.Contains(m.Token, newMatch.Token) {
@@ -404,10 +409,29 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 					if s.isDuplicateMatch(findings, newMatch) {
 						replaced := false
 						for idx, existing := range findings {
+							if existing.Line == newMatch.Line {
+								if severityWeight(newMatch.Severity) > severityWeight(existing.Severity) {
+									findings[idx] = newMatch
+									replaced = true
+									break
+								}
+								if severityWeight(newMatch.Severity) == severityWeight(existing.Severity) && len(newMatch.Token) < len(existing.Token) {
+									findings[idx] = newMatch
+									replaced = true
+									break
+								}
+								replaced = true
+								break
+							}
 							if existing.Token == newMatch.Token && strings.HasPrefix(existing.SignatureID, "generic-") && !strings.HasPrefix(newMatch.SignatureID, "generic-") {
 								findings[idx].SignatureID = newMatch.SignatureID
 								findings[idx].Description = newMatch.Description
 								findings[idx].Severity = newMatch.Severity
+								replaced = true
+								break
+							}
+							if (existing.DetectionTier == TierEntropy || strings.HasPrefix(existing.SignatureID, "high-entropy-")) && newMatch.DetectionTier == TierTrie {
+								findings[idx] = newMatch
 								replaced = true
 								break
 							}
@@ -558,7 +582,7 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 			}
 		}
 
-		if !s.opts.DisableEntropy && ext != ".pem" && ext != ".key" && ext != ".rsa" && ext != ".crt" && ext != ".pub" {
+		if !s.opts.DisableEntropy && ext != ".pem" && ext != ".rsa" && ext != ".crt" && ext != ".pub" {
 			// Entropy tier runs when the value has no spaces (looks like a single
 			// dense token)
 			if !hasSpace {
@@ -634,27 +658,40 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 							// Requires BOTH uppercase letters AND 4+ consecutive lowercase:
 							// pure-lowercase secrets (e.g. "supersecretpassword") are preserved.
 							if h.Kind == "base64" {
-								hasUpper := false
+								// Only apply CamelCase class/method checks to tokens that are
+								// pure identifiers (contain only letters, dots, and underscores).
+								// If the token contains digits, +, /, or =, it is highly likely
+								// to be a real base64 secret rather than a code identifier.
+								isPureIdent := true
 								for _, c := range h.Token {
-									if c >= 'A' && c <= 'Z' {
-										hasUpper = true
+									if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c == '_') {
+										isPureIdent = false
 										break
 									}
 								}
-								if hasUpper {
-									maxLower, cur := 0, 0
+								if isPureIdent {
+									hasUpper := false
 									for _, c := range h.Token {
-										if c >= 'a' && c <= 'z' {
-											cur++
-											if cur > maxLower {
-												maxLower = cur
-											}
-										} else {
-											cur = 0
+										if c >= 'A' && c <= 'Z' {
+											hasUpper = true
+											break
 										}
 									}
-									if maxLower >= 4 {
-										continue
+									if hasUpper {
+										maxLower, cur := 0, 0
+										for _, c := range h.Token {
+											if c >= 'a' && c <= 'z' {
+												cur++
+												if cur > maxLower {
+													maxLower = cur
+												}
+											} else {
+												cur = 0
+											}
+										}
+										if maxLower >= 4 {
+											continue
+										}
 									}
 								}
 							}
@@ -1150,7 +1187,13 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int, isSourc
 	// Optimize: find the end of the first field without allocating a full fields slice via bytes.FieldsFunc
 	endIdx := -1
 	for i, b := range after {
-		if b == ' ' || b == '\t' || b == '\n' || b == '\r' || b == '@' || b == '/' || b == '?' || b == '&' {
+		isTerm := b == ' ' || b == '\t' || b == '\n' || b == '\r'
+		if !strings.Contains(sig.ID, "-dsn") && !strings.Contains(sig.ID, "url-basic-auth") {
+			if b == '@' || b == '/' || b == '?' || b == '&' {
+				isTerm = true
+			}
+		}
+		if isTerm {
 			endIdx = i
 			break
 		}
@@ -1169,7 +1212,7 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int, isSourc
 	if len(cleaned) == 0 {
 		return ""
 	}
-	if strings.HasPrefix(sig.ID, "generic-") {
+	if strings.HasPrefix(sig.ID, "generic-") && isSourceFile {
 		// Generic key must have assignment operator (= or :) between prefix and token.
 		idx := bytes.Index(val[offset+1:], cleaned)
 		if idx != -1 {
@@ -1227,9 +1270,15 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 		return false
 	}
 	if strings.HasPrefix(token, "http://") || strings.HasPrefix(token, "https://") || strings.HasPrefix(token, "//") || strings.HasPrefix(token, "www.") || strings.HasPrefix(token, "urn:") {
-		return false
+		if !strings.Contains(sigID, "-dsn") && !strings.Contains(sigID, "url-basic-auth") {
+			return false
+		}
 	}
-	if len(token) < minLen/2 {
+	minAllowed := minLen / 2
+	if sigID == "generic-password-key" || sigID == "generic-secret-key" {
+		minAllowed = 6
+	}
+	if len(token) < minAllowed {
 		return false
 	}
 	// Stricter checks for generic rules to eliminate variable name/type/expression leaks
@@ -1396,4 +1445,19 @@ func isSourceCodeFile(filePath string) bool {
 		return true
 	}
 	return false
+}
+
+func severityWeight(sev string) int {
+	switch strings.ToUpper(sev) {
+	case "CRITICAL":
+		return 4
+	case "HIGH":
+		return 3
+	case "MEDIUM":
+		return 2
+	case "LOW":
+		return 1
+	default:
+		return 0
+	}
 }

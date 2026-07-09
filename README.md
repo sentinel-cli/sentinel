@@ -64,7 +64,7 @@ Sentinel uses a **three-tier detection pipeline** built for speed and near-zero 
 
 | Tier | Engine | Purpose |
 |------|--------|---------|
-| 1 — PATTERN | Aho-Corasick automaton | Matches 60+ known secret signatures in O(n) time, zero allocations |
+| 1 — PATTERN | Aho-Corasick automaton | Matches 80+ known secret signatures in O(n) time, zero allocations |
 | 2 — ENTROPY | Shannon entropy analysis | Catches unknown secrets by measuring information density |
 | 3 — CONTEXT | Context classifier | Suppresses false positives from comments, test files, and placeholders |
 
@@ -300,9 +300,9 @@ A same-line annotation suppresses only that line. A comment-line annotation supp
 | Category | Signatures |
 |----------|-----------|
 | **GitHub** | Classic PAT (`ghp_`), OAuth (`gho_`), App Installation (`ghs_`), Refresh (`ghr_`), Fine-grained PAT (`github_pat_`) |
-| **GitLab** | Personal Access Token (`glpat-`), Pipeline Trigger (`glptt-`), Runner Registration (`GR1348941`) |
+| **GitLab** | Personal Access Token (`glpat-`), Pipeline Trigger (`glptt-`), Runner Registration (`GR1348941`), Runner Token (`glrt-`) |
 | **AWS** | Access Key ID (`AKIA`, validated `AKIA[0-9A-Z]{16}`), MFA Device (`ABIA`), STS Temporary Key (`ASIA`) |
-| **Google Cloud** | Service Account JSON (`"type": "service_account"`), API Key (`AIzaSy`), OAuth Client ID (`.apps.googleusercontent.com`) |
+| **Google Cloud** | Service Account JSON (`"type": "service_account"`), API Key (`AIzaSy`), OAuth Client ID (`.apps.googleusercontent.com`), OAuth Client Secret (`GOCSPX-`) |
 | **Slack** | Bot (`xoxb-`), User (`xoxp-`), Workspace (`xoxa-`), Refresh (`xoxr-`) |
 | **Stripe** | Live Secret (`sk_live_`), Live Restricted (`rk_live_`), Test Secret (`sk_test_`) |
 | **OpenAI** | Classic (`sk-`), Project key (`sk-proj-`) |
@@ -310,10 +310,13 @@ A same-line annotation suppresses only that line. A comment-line annotation supp
 | **Twilio** | Account SID (`AC`, regex-validated), Auth Token (`SK`, regex-validated) |
 | **SendGrid** | API key (`SG.`, regex-validated: `SG.[a-zA-Z0-9_-]{22}.[a-zA-Z0-9_-]{43}`) |
 | **Mailgun** | API key (`key-`) |
-| **npm** | Automation/Publish token (`npm_`) |
+| **npm** | Automation/Publish token (`npm_`), Classic/Auth Token (`_authToken=`, `_auth=`) |
 | **JWT** | JSON Web Token (`eyJ`, strict 3-part dot-separated regex) |
-| **Private Keys (PEM)** | RSA, EC, OpenSSH, PKCS#8, PGP, DSA — all `-----BEGIN ... PRIVATE KEY-----` variants |
-| **Databases** | PostgreSQL (`postgresql://`), MySQL (`mysql://`), MongoDB SRV (`mongodb+srv://`), MongoDB (`mongodb://`), Redis (`redis://:@`) |
+| **Private Keys & Certs** | RSA, EC, OpenSSH, PKCS#8, PGP, DSA — all `-----BEGIN ... PRIVATE KEY-----` variants, PuTTY Private Keys (`PuTTY-User-Key-File-`) |
+| **Databases & DSNs** | PostgreSQL (`postgresql://`, `postgres://`), MySQL (`mysql://`), MongoDB SRV (`mongodb+srv://`), MongoDB (`mongodb://`), Redis (`redis://`), RabbitMQ (`amqp://`, `amqps://`) — DSN connection strings with embedded passwords |
+| **PyPI** | Upload Token (`pypi-`) |
+| **Square** | Access Token (`sq0atp-`) |
+| **Basic Auth** | HTTPS (`https://user:pass@`), HTTP (`http://user:pass@`) |
 | **HashiCorp Vault** | Service token (`hvs.`), Batch token (`hvb.`) |
 | **DigitalOcean** | Personal Access Token (`dop_v1_`) |
 | **Vercel** | API Token (`vercel_`) |

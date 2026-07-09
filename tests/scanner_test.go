@@ -839,3 +839,28 @@ func TestScanner_CustomSignature_Detected(t *testing.T) {
 		t.Errorf("expected Severity 'HIGH', got %s", f.Severity)
 	}
 }
+
+func TestScanner_NetrcSecret_Detected(t *testing.T) {
+	s := defaultScanner()
+	findings := s.ScanContent(".netrc", []byte("machine imap.gmail.com login example@gmail.com password pass123\n"))
+	if len(findings) == 0 {
+		t.Fatal("expected finding in .netrc file")
+	}
+	if findings[0].Token != "pass123" {
+		t.Errorf("expected token 'pass123', got %s", findings[0].Token)
+	}
+}
+
+func TestScanner_Npmrc_Detected(t *testing.T) {
+	s := defaultScanner()
+	findings := s.ScanContent(".npmrc", []byte("registry=\"https://registry.npmjs.org/\"\nalways-auth=true\npackage-lock=false\n# Informative\nemail=dummy@example.com\n# Risk\n_auth = YWRtaW46YWRtaW4=\n# Risk\n//registry.npmjs.org/:_authToken=00000000-0000-0000-0000-000000000000\n"))
+	if len(findings) != 2 {
+		t.Fatalf("expected exactly 2 findings, got %d: %+v", len(findings), findings)
+	}
+	if findings[0].Token != "YWRtaW46YWRtaW4=" {
+		t.Errorf("expected first token to be YWRtaW46YWRtaW4=, got %s", findings[0].Token)
+	}
+	if findings[1].Token != "00000000-0000-0000-0000-000000000000" {
+		t.Errorf("expected second token to be 00000000-0000-0000-0000-000000000000, got %s", findings[1].Token)
+	}
+}

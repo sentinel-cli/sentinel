@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -209,6 +210,9 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 				}
 			}
 			currentChunk = currentChunk[:0]
+			if scannedCount%250 == 0 {
+				debug.FreeOSMemory()
+			}
 		}
 
 		for bufScanner.Scan() {
@@ -249,17 +253,24 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 		processChunk()
 		cmd.Wait()
 	} else {
-		// Collect all target file paths.
-		var targets []string
+		type scanJob struct {
+			filePath string
+			scanRoot string
+		}
+		var targets []scanJob
 		for _, p := range paths {
 			info, err := os.Stat(p)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "sentinel: the path %q does not exist or is inaccessible\n", p)
 				continue
 			}
+			absP, err := filepath.Abs(p)
+			if err != nil {
+				absP = p
+			}
 			if info.IsDir() {
 				if recursive {
-					_ = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+					_ = filepath.WalkDir(absP, func(path string, d fs.DirEntry, err error) error {
 						if err != nil {
 							return nil
 						}
@@ -270,19 +281,19 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 							}
 							return nil
 						}
-						targets = append(targets, path)
+						targets = append(targets, scanJob{filePath: path, scanRoot: absP})
 						return nil
 					})
 				} else {
-					entries, _ := os.ReadDir(p)
+					entries, _ := os.ReadDir(absP)
 					for _, e := range entries {
 						if !e.IsDir() {
-							targets = append(targets, filepath.Join(p, e.Name()))
+							targets = append(targets, scanJob{filePath: filepath.Join(absP, e.Name()), scanRoot: absP})
 						}
 					}
 				}
 			} else {
-				targets = append(targets, p)
+				targets = append(targets, scanJob{filePath: absP, scanRoot: filepath.Dir(absP)})
 			}
 		}
 
@@ -295,7 +306,7 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 			numWorkers = 4
 		}
 
-		jobs := make(chan string, len(targets))
+		jobs := make(chan scanJob, len(targets))
 		for _, t := range targets {
 			jobs <- t
 		}
@@ -305,7 +316,8 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				for filePath := range jobs {
+				for job := range jobs {
+					filePath := job.filePath
 					if cfg.FailFast {
 						mu.Lock()
 						hasFindings := len(allFindings) > 0
@@ -314,10 +326,15 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 							continue
 						}
 					}
-					if scanner.HasExcludedExtension(filePath, cfg.ExcludeExtensions) {
+					displayPath, err := filepath.Rel(job.scanRoot, filePath)
+					if err != nil || displayPath == "" {
+						displayPath = filePath
+					}
+
+					if scanner.HasExcludedExtension(displayPath, cfg.ExcludeExtensions) {
 						continue
 					}
-					if scanner.MatchesExcludePath(filePath, cfg.ExcludePaths) {
+					if scanner.MatchesExcludePath(displayPath, cfg.ExcludePaths) {
 						continue
 					}
 
@@ -348,9 +365,14 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 
 					mu.Lock()
 					scannedCount++
+					shouldGC := scannedCount%500 == 0
 					mu.Unlock()
 
-					findings := sec.ScanContent(filePath, content)
+					if shouldGC {
+						debug.FreeOSMemory()
+					}
+
+					findings := sec.ScanContent(displayPath, content)
 					if len(findings) > 0 {
 						mu.Lock()
 						for _, f := range findings {
