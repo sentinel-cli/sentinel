@@ -854,7 +854,7 @@ func isKnownSafeFile(filePath string) bool {
 
 	// Microsoft Guardian / security scanner suppression files.
 	// They contain SHA-256 hashes of known FPs, not secrets.
-	if ext == ".gdnsuppress" || ext == ".snyk" {
+	if ext == ".gdnsuppress" || ext == ".snyk" || ext == ".dotsettings" {
 		return true
 	}
 	// Go package-level documentation files: contain instruction encoding
@@ -1185,7 +1185,16 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int, isSourc
 		return string(after) // fallback
 	}
 
-	after = bytes.TrimLeft(after, "\"'`=: ,() \t\n\r")
+	after = bytes.TrimLeft(after, "=:,() \t\n\r")
+
+	// Explicitly handle quotes so we don't accidentally consume empty strings like "" or ''
+	hasQuote := false
+	var quoteCh byte
+	if len(after) > 0 && (after[0] == '"' || after[0] == '\'' || after[0] == '`') {
+		hasQuote = true
+		quoteCh = after[0]
+		after = after[1:]
+	}
 
 	// Early return for GitHub Actions / Jinja / Helm expressions like ${{...}} or {{...}}
 	// These must pass intact to the context classifier to be recognized as safe placeholders.
@@ -1204,9 +1213,16 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int, isSourc
 		return string(after)
 	}
 
-	// Truncate at the first closing quote to properly isolate tokens in minified code
-	if qIdx := bytes.IndexAny(after, "\"'`"); qIdx > 0 {
-		after = after[:qIdx]
+	if hasQuote {
+		// Truncate exactly at the matching closing quote
+		if endIdx := bytes.IndexByte(after, quoteCh); endIdx >= 0 {
+			after = after[:endIdx]
+		}
+	} else {
+		// Truncate at the first closing quote to properly isolate tokens in minified code
+		if qIdx := bytes.IndexAny(after, "\"'`"); qIdx > 0 {
+			after = after[:qIdx]
+		}
 	}
 
 	// Optimize: find the end of the first field without allocating a full fields slice via bytes.FieldsFunc
@@ -1315,9 +1331,23 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 	if len(token) < minAllowed {
 		return false
 	}
-	// Stricter checks for generic rules to eliminate variable name/type/expression leaks
+
+	// 1. Reject function-call expressions (contain parentheses).
+	// Real secrets never contain ( or ) — these are code identifiers or calls.
+	if strings.ContainsAny(token, "()") {
+		return false
+	}
+
+	// 2. Reject common variable references (e.g. settings.SECRET_KEY, process.env.PASSWORD)
+	lowerToken := strings.ToLower(token)
+	if strings.Contains(lowerToken, "settings.") || strings.Contains(lowerToken, "config.") || strings.Contains(lowerToken, "env.") {
+		return false
+	}
+
+	// 3. Stricter checks for generic rules to eliminate variable name/type/expression leaks
 	if strings.HasPrefix(sigID, "generic-") {
-		if strings.ContainsAny(token, "${}<>()[]*;|&+=\"!? ") || strings.Contains(token, "::") || strings.Contains(token, "->") {
+		// Reject tokens with logic operators, colons, or spaces
+		if strings.ContainsAny(token, "${}<>[]*;|&+=\"!? :") || strings.Contains(token, "->") {
 			return false
 		}
 		// If it's a property path (contains dot) and it's from a generic rule, reject it
@@ -1325,8 +1355,7 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 			return false
 		}
 		// If a generic API/Secret token consists ONLY of letters (no digits), it's overwhelmingly
-		// likely to be a CamelCase/PascalCase variable or class name (e.g. DisjointLeibnizSet), not a real token.
-		// We exempt passwords since users often use pure alphabetical words as passwords.
+		// likely to be a CamelCase/PascalCase variable or class name, not a real token.
 		if !strings.Contains(sigID, "password") {
 			isOnlyLetters := true
 			for _, r := range token {
@@ -1341,7 +1370,17 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 		}
 	}
 
-	// Reject all-uppercase snake_case constants (e.g. CALIBRATION_PROMPTS_FILE)
+	// 4. Reject common dummy passwords and HTML form attributes
+	if strings.Contains(sigID, "password") {
+		if lowerToken == "password" || lowerToken == "new-password" || lowerToken == "current-password" ||
+			lowerToken == "false" || lowerToken == "true" || lowerToken == "null" || lowerToken == "undefined" ||
+			lowerToken == "dummy" || lowerToken == "test" || lowerToken == "secret" || lowerToken == "example" ||
+			lowerToken == "changeme" || lowerToken == "password123" {
+			return false
+		}
+	}
+
+	// 5. Reject all-uppercase snake_case constants (e.g. CALIBRATION_PROMPTS_FILE)
 	// for generic rules and generic entropy rules (hex, base64, high-entropy).
 	if strings.HasPrefix(sigID, "generic-") || sigID == "hex" || sigID == "base64" || strings.Contains(sigID, "high-entropy") {
 		isAllCapsConstant := true
