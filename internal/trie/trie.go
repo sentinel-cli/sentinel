@@ -130,7 +130,7 @@ var BuiltinSignatures = []Signature{
 	// Real Cloudflare API tokens always contain at least one lowercase letter.
 	// ALL_UPPERCASE C macros (e.g. IMAGE_GUARD_CF_FUNCTION_TABLE_PRESENT) are rejected.
 	{ID: "cloudflare-api-token", Description: "Cloudflare API Token", Prefix: "CF_", Severity: "MEDIUM",
-		Validator: regexp.MustCompile(`[a-z]`)},
+		Validator: regexp.MustCompile(`(?i)^CF_[a-z0-9]+$`)},
 
 	// ── DigitalOcean ─────────────────────────────────────────────────────────
 	{ID: "digitalocean-token", Description: "DigitalOcean Personal Access Token", Prefix: "dop_v1_", Severity: "CRITICAL",
