@@ -19,7 +19,8 @@ import (
 )
 
 func NewUpdateCmd() *cobra.Command {
-	return &cobra.Command{
+	var allowBeta bool
+	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Sentinel to the latest version",
 		Long: `Check GitHub for the latest release of Sentinel and update the current executable binary.
@@ -62,7 +63,7 @@ This command performs the following actions:
 				},
 			}
 
-			resp, err := client.Get("https://api.github.com/repos/sentinel-cli/sentinel/releases/latest")
+			resp, err := client.Get("https://api.github.com/repos/sentinel-cli/sentinel/releases")
 			if err != nil {
 				return fmt.Errorf("failed to reach github: %w", err)
 			}
@@ -72,16 +73,31 @@ This command performs the following actions:
 				return fmt.Errorf("failed to get latest release: http status %d", resp.StatusCode)
 			}
 
-			var release struct {
-				TagName string `json:"tag_name"`
-				Assets  []struct {
+			type ReleaseInfo struct {
+				TagName    string `json:"tag_name"`
+				Prerelease bool   `json:"prerelease"`
+				Assets     []struct {
 					Name               string `json:"name"`
 					BrowserDownloadURL string `json:"browser_download_url"`
 				} `json:"assets"`
 			}
+			var releases []ReleaseInfo
 
-			if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+			if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
 				return fmt.Errorf("failed to decode release JSON: %w", err)
+			}
+
+			var release *ReleaseInfo
+			for i, r := range releases {
+				isBeta := r.Prerelease || strings.Contains(r.TagName, "-beta") || strings.Contains(r.TagName, "-rc")
+				if allowBeta || !isBeta {
+					release = &releases[i]
+					break
+				}
+			}
+
+			if release == nil {
+				return fmt.Errorf("no matching release found")
 			}
 
 			var downloadURL string
@@ -190,4 +206,6 @@ This command performs the following actions:
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&allowBeta, "beta", false, "Allow updating to pre-release (beta) versions")
+	return cmd
 }

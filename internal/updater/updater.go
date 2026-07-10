@@ -48,7 +48,7 @@ func CheckForUpdateAsync() <-chan string {
 		}
 
 		client := &http.Client{Timeout: 500 * time.Millisecond}
-		resp, err := client.Get(repoURL)
+		resp, err := client.Get("https://api.github.com/repos/sentinel-cli/sentinel/releases")
 		if err != nil {
 			return
 		}
@@ -58,15 +58,28 @@ func CheckForUpdateAsync() <-chan string {
 			return
 		}
 
-		var release struct {
-			TagName string `json:"tag_name"`
+		var releases []struct {
+			TagName    string `json:"tag_name"`
+			Prerelease bool   `json:"prerelease"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+			return
+		}
+
+		var latestStable string
+		for _, r := range releases {
+			if !r.Prerelease && !strings.Contains(r.TagName, "-beta") && !strings.Contains(r.TagName, "-rc") {
+				latestStable = r.TagName
+				break
+			}
+		}
+
+		if latestStable == "" {
 			return
 		}
 
 		cache.LastCheck = now
-		cache.LatestVersion = release.TagName
+		cache.LatestVersion = latestStable
 
 		os.MkdirAll(filepath.Dir(cachePath), 0755)
 		data, _ := json.Marshal(cache)

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.6] - 2026-07-08
 
 ### Added
+- **Stable OTA Updates:** Upgraded the `sentinel update` logic to fetch stable releases by default and introduced a `--beta` flag for opting into pre-release updates.
 - **Fail-Fast Mode (`--fail-fast`):** Implemented `--fail-fast` across concurrent file scans and history traversals, aborting instantly upon identifying the first secret.
 - **Safe File Mode Handling:** Added strict non-regular file checking (`!info.Mode().IsRegular()`) to instantly skip named pipes, sockets, and character devices, eliminating terminal freezes.
 - **Consolidated Generic Signature Rules:** Consolidated the redundant JSON/YAML and CLI variable matching rules down to 4 unified, keyword-only signatures (`password`, `secret`, `api_key`, `token`) matching standard coding patterns.

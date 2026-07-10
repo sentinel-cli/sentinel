@@ -71,7 +71,8 @@ CLI Commands & Flags:
       -f, --force               Overwrite an existing hook without prompting.
 
   sentinel uninstall            Completely remove Sentinel, binary, and all hooks.
-  sentinel update               Update Sentinel to the latest version.
+  sentinel update               Update Sentinel to the latest stable version.
+      --beta                    Allow updating to pre-release (beta) versions.
   sentinel version              Print Sentinel version and build metadata.
 
 Developed by: Khaled Hani | Contact: https://t.me/A245F`,

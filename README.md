@@ -657,7 +657,11 @@ Scans staged changes only. Invoked automatically by the Git hook.
 <details>
 <summary>sentinel update — OTA self-updater</summary>
 
-Downloads the latest release for the current OS/arch from the GitHub Releases API, verifies the binary, and atomically replaces the running executable. Falls back to `go install` if no pre-compiled binary matches the platform.
+Downloads the latest stable release for the current OS/arch from the GitHub Releases API, verifies the binary, and atomically replaces the running executable. Falls back to `go install` if no pre-compiled binary matches the platform.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--beta` | false | Allow updating to pre-release (beta) versions |
 
 A background check runs on each invocation, querying the API at most once per 24 hours. The result is cached at `~/.config/sentinel/last_check.json`. A notice is printed to stderr if a newer version is available.
 
