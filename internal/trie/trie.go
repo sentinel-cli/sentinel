@@ -121,7 +121,10 @@ var BuiltinSignatures = []Signature{
 	{ID: "vault-batch-token", Description: "HashiCorp Vault Batch Token", Prefix: "hvb.", Severity: "CRITICAL"},
 
 	// ── Vercel ────────────────────────────────────────────────────────────────
-	{ID: "vercel-token", Description: "Vercel API Token", Prefix: "vercel_", Severity: "HIGH"},
+	// Real Vercel API tokens contain lowercase letters.
+	// ALL_UPPERCASE variables (e.g. VERCEL_OUTPUT_DIR) are rejected.
+	{ID: "vercel-token", Description: "Vercel API Token", Prefix: "vercel_", Severity: "HIGH",
+		Validator: regexp.MustCompile(`[a-z]`)},
 
 	// ── Cloudflare ────────────────────────────────────────────────────────────
 	// Real Cloudflare API tokens always contain at least one lowercase letter.

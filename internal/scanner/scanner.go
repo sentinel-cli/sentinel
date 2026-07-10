@@ -608,7 +608,7 @@ func (s *Scanner) ScanContent(filePath string, content []byte) []Finding {
 						if s.isAllowed(h.Token) {
 							continue
 						}
-						if !isPlausibleSecretToken(h.Token, "", "", s.opts.MinSecretLength) {
+						if !isPlausibleSecretToken(h.Token, "", "high-entropy-"+h.Kind, s.opts.MinSecretLength) {
 							continue
 						}
 						// In source code files with no assignment context, base64 entropy hits
@@ -880,6 +880,10 @@ func isKnownSafeFile(filePath string) bool {
 	}
 	// product.json and similar build manifests with reproducibility hashes.
 	if base == "product.json" {
+		return true
+	}
+	// Terraform lock files contain only provider binary hashes.
+	if base == ".terraform.lock.hcl" {
 		return true
 	}
 	return false
@@ -1299,6 +1303,11 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 			return false
 		}
 	}
+	// Filter out public cryptocurrency wallet addresses (e.g., Ethereum)
+	// and Git SHAs, which are exactly 40 characters long (hex)
+	if len(token) == 40 && sigID == "high-entropy-hex" {
+		return false
+	}
 	minAllowed := minLen / 2
 	if sigID == "generic-password-key" || sigID == "generic-secret-key" {
 		minAllowed = 6
@@ -1308,12 +1317,27 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 	}
 	// Stricter checks for generic rules to eliminate variable name/type/expression leaks
 	if strings.HasPrefix(sigID, "generic-") {
-		if strings.ContainsAny(token, "${}<>()[]*;") || strings.Contains(token, "::") || strings.Contains(token, "->") {
+		if strings.ContainsAny(token, "${}<>()[]*;|&+=\"!? ") || strings.Contains(token, "::") || strings.Contains(token, "->") {
 			return false
 		}
 		// If it's a property path (contains dot) and it's from a generic rule, reject it
 		if strings.Contains(token, ".") {
 			return false
+		}
+		// If a generic API/Secret token consists ONLY of letters (no digits), it's overwhelmingly
+		// likely to be a CamelCase/PascalCase variable or class name (e.g. DisjointLeibnizSet), not a real token.
+		// We exempt passwords since users often use pure alphabetical words as passwords.
+		if !strings.Contains(sigID, "password") {
+			isOnlyLetters := true
+			for _, r := range token {
+				if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')) {
+					isOnlyLetters = false
+					break
+				}
+			}
+			if isOnlyLetters {
+				return false
+			}
 		}
 	}
 
