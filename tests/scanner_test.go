@@ -888,4 +888,42 @@ func TestScanner_FalsePositive_Refinement(t *testing.T) {
 	if len(findings) != 0 {
 		t.Errorf("expected 0 findings for XSRF token, got %d: %+v", len(findings), findings)
 	}
+
+	// 4. Python package naming conventions starting with ghp_ (like ghp-import) - should NOT trigger GitHub PAT
+	ghpPackageLine := []byte(`dependency = "ghp_import-2.1.0-py3-none-any.whl"`)
+	findings = s.ScanContent("requirements.txt", ghpPackageLine)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for ghp_import package name, got %d: %+v", len(findings), findings)
+	}
+
+	// 5. Sequential character ranges like 0123456789abcdefABCDEF - should NOT trigger entropy
+	seqHexLine := []byte(`const hexChars = "0123456789abcdefABCDEF";`)
+	findings = s.ScanContent("utils.js", seqHexLine)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for sequential hex character string, got %d: %+v", len(findings), findings)
+	}
+
+	// 6. Base64 Data URIs (inline images, fonts, etc.) - should NOT trigger entropy
+	dataUriLine := []byte(`const background = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAACk0lEQVR4nO2WsUvDQBDGv8e1q..."`)
+	findings = s.ScanContent("styles.css", dataUriLine)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for base64 data URI, got %d: %+v", len(findings), findings)
+	}
+
+	// 7. Ruby/JS Spec files (spec/ or _spec.js suffixes) - should NOT trigger mock credential false positives
+	specLine := []byte(`let mockPassword = "Yvk9pNXQJLzR3cW1mEqsTGbHuaOfidw8KvM2nXpQrYsT"`)
+	findings = s.ScanContent("spec/controllers/auth_controller_spec.rb", specLine)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for file inside spec directory, got %d: %+v", len(findings), findings)
+	}
+	findings = s.ScanContent("components/login_spec.js", specLine)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for file with _spec.js suffix, got %d: %+v", len(findings), findings)
+	}
+
+	// 8. Python generated protobuf files (*_pb2.py, *_pb2_grpc.py) - should NOT scan base64 serialized descriptors
+	findings = s.ScanContent("messages_pb2.py", []byte(`_COMMAND_ENVIRONMENTVARIABLE = _descriptor.Descriptor(name='CommandEnvironmentVariable', full_name='CommandEnvironmentVariable', serialized_start=12345)`))
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for Python protobuf file, got %d: %+v", len(findings), findings)
+	}
 }

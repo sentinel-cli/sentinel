@@ -863,7 +863,8 @@ func isKnownSafeFile(filePath string) bool {
 		return true
 	}
 	// Protocol Buffer generated code — machine-written, no human secrets.
-	if strings.HasSuffix(base, ".pb.go") || strings.HasSuffix(base, ".pb.gw.go") {
+	if strings.HasSuffix(base, ".pb.go") || strings.HasSuffix(base, ".pb.gw.go") ||
+		strings.HasSuffix(base, "_pb2.py") || strings.HasSuffix(base, "_pb2_grpc.py") {
 		return true
 	}
 	// Controller-runtime / Kubernetes code-gen output.

@@ -365,6 +365,29 @@ make build            # outputs to dist/sentinel
 ./dist/sentinel version
 ```
 
+### Android / Termux
+
+Sentinel can be easily installed on Android using Termux.
+
+**Via Termux User Repository (TUR):**
+```bash
+pkg install tur-repo
+pkg install sentinel
+```
+
+**Via Pre-compiled Binary:**
+Download the corresponding `android-arm64` or `android-arm` binary from the [Releases page](https://github.com/sentinel-cli/sentinel/releases):
+```bash
+# Replace <version>  e.g. v2.0.6
+wget https://github.com/sentinel-cli/sentinel/releases/download/<version>/sentinel-<version>-android-arm64 -O sentinel
+chmod +x sentinel
+mv sentinel $PREFIX/bin/
+sentinel version
+```
+
+> [!NOTE]
+> Sentinel's built-in over-the-air (OTA) self-updater (`sentinel update`) now fully supports Android/Termux devices directly, pulling and installing the latest compatible release from the GitHub releases page.
+
 ---
 
 ### Git Hook Setup

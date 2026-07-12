@@ -41,11 +41,11 @@ type Signature struct {
 // Sentinel detects via the Aho-Corasick automaton.
 var BuiltinSignatures = []Signature{
 	// ── GitHub ────────────────────────────────────────────────────────────────
-	{ID: "github-pat-classic", Description: "GitHub Personal Access Token (classic)", Prefix: "ghp_", Severity: "CRITICAL"},
-	{ID: "github-oauth", Description: "GitHub OAuth Token", Prefix: "gho_", Severity: "CRITICAL"},
-	{ID: "github-app-install", Description: "GitHub App Installation Token", Prefix: "ghs_", Severity: "CRITICAL"},
-	{ID: "github-refresh", Description: "GitHub Refresh Token", Prefix: "ghr_", Severity: "CRITICAL"},
-	{ID: "github-pat-fine", Description: "GitHub Fine-grained PAT", Prefix: "github_pat_", Severity: "CRITICAL"},
+	{ID: "github-pat-classic", Description: "GitHub Personal Access Token (classic)", Prefix: "ghp_", Severity: "CRITICAL", Validator: regexp.MustCompile(`^ghp_[a-zA-Z0-9]{20,40}$`)},
+	{ID: "github-oauth", Description: "GitHub OAuth Token", Prefix: "gho_", Severity: "CRITICAL", Validator: regexp.MustCompile(`^gho_[a-zA-Z0-9]{20,40}$`)},
+	{ID: "github-app-install", Description: "GitHub App Installation Token", Prefix: "ghs_", Severity: "CRITICAL", Validator: regexp.MustCompile(`^ghs_[a-zA-Z0-9]{20,40}$`)},
+	{ID: "github-refresh", Description: "GitHub Refresh Token", Prefix: "ghr_", Severity: "CRITICAL", Validator: regexp.MustCompile(`^ghr_[a-zA-Z0-9]{20,40}$`)},
+	{ID: "github-pat-fine", Description: "GitHub Fine-grained PAT", Prefix: "github_pat_", Severity: "CRITICAL", Validator: regexp.MustCompile(`^github_pat_[a-zA-Z0-9]{20,100}$`)},
 
 	// ── GitLab ────────────────────────────────────────────────────────────────
 	{ID: "gitlab-pat", Description: "GitLab Personal Access Token", Prefix: "glpat-", Severity: "CRITICAL"},

@@ -43,12 +43,14 @@ var safeFileSegments = map[string]bool{
 	"test": true, "tests": true, "testdata": true, "fixtures": true,
 	"__tests__": true, "__mocks__": true, "mock": true, "mocks": true,
 	"sample": true, "samples": true, "docs": true, "doc": true,
+	"spec": true, "specs": true,
 }
 
 // safeFileSuffixes are filename substrings that indicate the file is a test or doc.
 var safeFileSuffixes = []string{
 	"_test.go", "_spec.rb", ".test.js", ".spec.js", ".test.ts", ".spec.ts",
 	".test.tsx", ".spec.tsx", ".test.jsx", ".spec.jsx",
+	"_spec.js", "_spec.ts", "_spec.tsx", "_spec.jsx",
 	"readme", ".md", ".rst", ".supp", ".po", ".pot", ".mo", ".xliff",
 }
 
@@ -142,6 +144,14 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 		return SafeTestFile
 	}
 
+	// ── Check 1B: Base64 data image / URI suppression ───────────────────────
+	lowerLine := strings.ToLower(lineContent)
+	if strings.Contains(lowerLine, "data:image/") || strings.Contains(lowerLine, "data:application/") ||
+		strings.Contains(lowerLine, "data:audio/") || strings.Contains(lowerLine, "data:video/") ||
+		strings.Contains(lowerLine, "data:font/") {
+		return SafePlaceholder
+	}
+
 	// ── Check 2: Commented-out line ──────────────────────────────────────────
 	trimmed := strings.TrimLeftFunc(lineContent, unicode.IsSpace)
 	isPEM := strings.HasPrefix(trimmed, "-----BEGIN ")
@@ -220,7 +230,6 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 	// ── Check 10: Control flow / Conditional expressions ──────────────────────
 	// Reject lines containing Rust "if let " or Go "if " conditional checks,
 	// which are code logic rather than hardcoded credentials.
-	lowerLine := strings.ToLower(lineContent)
 	if strings.Contains(lowerLine, "if let ") || strings.HasPrefix(strings.TrimSpace(lowerLine), "if ") {
 		return SafeVariableName
 	}
@@ -577,6 +586,7 @@ func cleanIdentifier(s string) string {
 
 // isSequential returns true when the token contains long runs of sequential characters,
 // which indicates it is an alphabet or character set definition rather than a secret.
+// It checks sequentiality both in ASCII space and in alphanumeric range (handling '9' -> 'a').
 func isSequential(s string) bool {
 	if len(s) < 6 {
 		return false
@@ -591,11 +601,29 @@ func isSequential(s string) bool {
 	if len(cleaned) < 6 {
 		return false
 	}
+
+	const alphanumeric = "0123456789abcdefghijklmnopqrstuvwxyz"
+
 	maxRun := 1
 	currentRun := 1
 	for i := 1; i < len(cleaned); i++ {
-		diff := int(cleaned[i]) - int(cleaned[i-1])
-		if diff == 1 || diff == -1 {
+		r1 := cleaned[i-1]
+		r2 := cleaned[i]
+
+		// Check sequential in ASCII table
+		diffASCII := int(r2) - int(r1)
+		isSeqASCII := diffASCII == 1 || diffASCII == -1
+
+		// Check sequential in custom alphanumeric alphabet
+		idx1 := strings.IndexRune(alphanumeric, r1)
+		idx2 := strings.IndexRune(alphanumeric, r2)
+		isSeqAlpha := false
+		if idx1 >= 0 && idx2 >= 0 {
+			diffAlpha := idx2 - idx1
+			isSeqAlpha = diffAlpha == 1 || diffAlpha == -1
+		}
+
+		if isSeqASCII || isSeqAlpha {
 			currentRun++
 			if currentRun > maxRun {
 				maxRun = currentRun
@@ -606,3 +634,4 @@ func isSequential(s string) bool {
 	}
 	return maxRun >= 12
 }
+
