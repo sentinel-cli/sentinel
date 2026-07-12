@@ -187,8 +187,12 @@ func runScan(configPath, format string, failFast, verbose bool) error {
 	// ── Report results ────────────────────────────────────────────────────────
 	if len(allFindings) == 0 {
 		rep.PrintClean(elapsed, scannedCount)
-		if msg := <-updateChan; msg != "" {
-			fmt.Fprintln(os.Stderr, msg)
+		select {
+		case msg := <-updateChan:
+			if msg != "" {
+				fmt.Fprintln(os.Stderr, msg)
+			}
+		default:
 		}
 		return nil
 	}
@@ -196,8 +200,12 @@ func runScan(configPath, format string, failFast, verbose bool) error {
 	rep.PrintFindings(allFindings)
 	rep.PrintSummary(allFindings, elapsed, scannedCount)
 
-	if msg := <-updateChan; msg != "" {
-		fmt.Fprintln(os.Stderr, msg)
+	select {
+	case msg := <-updateChan:
+		if msg != "" {
+			fmt.Fprintln(os.Stderr, msg)
+		}
+	default:
 	}
 
 	// Exit 1 to block the commit.

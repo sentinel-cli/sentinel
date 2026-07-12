@@ -165,7 +165,7 @@ func TestScanner_EdgeCasesAdditional(t *testing.T) {
 	if scanner.IsBinary([]byte("hello world")) {
 		t.Error("expected plain text string to NOT be binary")
 	}
-	
+
 	// Create larger text to test IsBinary 8KB limit
 	largeText := make([]byte, 10000)
 	for i := range largeText {

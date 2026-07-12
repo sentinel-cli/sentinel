@@ -230,8 +230,16 @@ type Match struct {
 // Build constructs an Aho-Corasick automaton from the given signatures.
 // It lowercases prefixes so that matching is case-insensitive.
 func Build(sigs []Signature) *Automaton {
-	// Pre-allocate a reasonable capacity to avoid re-allocations
-	nodes := make([]acNode, 1, 2048) // Index 0 is root
+	// Pre-allocate capacity to the maximum possible nodes (sum of prefix lengths + 1)
+	// capped at 65536 to avoid expensive slice growth and re-allocations.
+	maxNodes := 1
+	for i := range sigs {
+		maxNodes += len(sigs[i].Prefix)
+	}
+	if maxNodes > 65536 {
+		maxNodes = 65536
+	}
+	nodes := make([]acNode, 1, maxNodes) // Index 0 is root
 
 	// Phase 1: insert all prefixes into the trie.
 	for i := range sigs {
@@ -243,6 +251,9 @@ func Build(sigs []Signature) *Automaton {
 				continue // Skip non-ASCII characters in prefixes if any exist
 			}
 			if nodes[cur].children[b] == 0 {
+				if len(nodes) >= 65535 {
+					panic("trie: state space limit (65535 nodes) exceeded. migrate node pointers to uint32")
+				}
 				nodes = append(nodes, acNode{})
 				nodes[cur].children[b] = uint16(len(nodes) - 1)
 			}

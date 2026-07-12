@@ -100,8 +100,7 @@ func Analyze(content []byte, threshold float64, minLen int) []EntropyHit {
 
 				// Skip lines that are purely a URL — entire line contains a URL so
 				// any extracted token will be a URL segment, not a secret.
-				lineStr := string(line)
-				if containsURL(lineStr) {
+				if containsURL(line) {
 					if i < len(content) {
 						lineNum++
 						start = i + 1
@@ -173,10 +172,15 @@ func isJavaConstant(tok []byte) bool {
 
 // containsURL returns true when the line looks like it's a URL string
 // (starts with http, https, or //www) so we can skip entropy scoring entirely.
-func containsURL(line string) bool {
+func containsURL(line []byte) bool {
 	for i := 0; i < len(line); i++ {
-		if line[i] == 'h' && i+7 <= len(line) && (line[i:i+7] == "http://" || (i+8 <= len(line) && line[i:i+8] == "https://")) {
-			return true
+		if line[i] == 'h' {
+			if i+7 <= len(line) && line[i+1] == 't' && line[i+2] == 't' && line[i+3] == 'p' && line[i+4] == ':' && line[i+5] == '/' && line[i+6] == '/' {
+				return true
+			}
+			if i+8 <= len(line) && line[i+1] == 't' && line[i+2] == 't' && line[i+3] == 'p' && line[i+4] == 's' && line[i+5] == ':' && line[i+6] == '/' && line[i+7] == '/' {
+				return true
+			}
 		}
 		if line[i] == '/' && i+1 < len(line) && line[i+1] == '/' {
 			return true
@@ -260,8 +264,8 @@ func IsBase64Like(s string) bool {
 		return false
 	}
 	count := 0
-	for _, b := range []byte(s) {
-		if base64Set[b] {
+	for i := 0; i < len(s); i++ {
+		if base64Set[s[i]] {
 			count++
 		}
 	}
@@ -273,8 +277,8 @@ func IsHexLike(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
-	for _, b := range []byte(s) {
-		if !hexSet[b] {
+	for i := 0; i < len(s); i++ {
+		if !hexSet[s[i]] {
 			return false
 		}
 	}

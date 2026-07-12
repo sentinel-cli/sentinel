@@ -127,12 +127,12 @@ func isNewer(latest, current string) bool {
 			return false
 		}
 	}
-	
+
 	// If the major.minor.patch are equal, check if current is a pre-release and latest is stable
 	// e.g. latest = "2.0.5", current = "2.0.5-beta"
 	if !strings.Contains(latest, "-") && strings.Contains(current, "-") {
 		return true
 	}
-	
+
 	return false
 }

@@ -364,10 +364,6 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 						continue
 					}
 
-					if !cfg.ScanBinaryFiles && isBinaryFileFast(filePath) {
-						continue
-					}
-
 					content, err := os.ReadFile(filePath)
 					if err != nil {
 						if cfg.Verbose {
@@ -375,6 +371,10 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 							fmt.Fprintf(os.Stderr, "  [verbose] cannot read %s: %v\n", filePath, err)
 							mu.Unlock()
 						}
+						continue
+					}
+
+					if !cfg.ScanBinaryFiles && scanner.IsBinary(content) {
 						continue
 					}
 
@@ -432,16 +432,4 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 	}
 	os.Exit(1)
 	return nil
-}
-
-func isBinaryFileFast(filePath string) bool {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-
-	var buf [8192]byte
-	n, _ := f.Read(buf[:])
-	return bytes.IndexByte(buf[:n], 0x00) != -1
 }

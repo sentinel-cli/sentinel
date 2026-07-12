@@ -268,3 +268,27 @@ func matchIDs(matches []trie.Match) []string {
 	}
 	return ids
 }
+
+func TestTrie_BuildOverflowPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected panic for state space overflow (> 65535 nodes), but build did not panic")
+		} else {
+			errStr := r.(string)
+			if !strings.Contains(errStr, "state space limit") {
+				t.Errorf("expected state space limit panic, got: %v", r)
+			}
+		}
+	}()
+
+	// Build an automaton with a prefix that exceeds the uint16 state space limit (65535 nodes).
+	// A single prefix of length 65536 will create 65536 nodes.
+	sigs := []trie.Signature{
+		{
+			ID:       "overflow-test",
+			Prefix:   strings.Repeat("a", 65536),
+			Severity: "LOW",
+		},
+	}
+	trie.Build(sigs)
+}

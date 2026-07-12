@@ -529,7 +529,7 @@ func extractVarName(line, token string) string {
 	if opIdx >= 0 {
 		// LHS is everything to the left of the operator on that line
 		lhs := strings.TrimSpace(line[:opIdx])
-		
+
 		// If the operator was :=, make sure we strip the colon if it wasn't already stripped
 		if line[opIdx] == '=' && opIdx > 0 && line[opIdx-1] == ':' {
 			lhs = strings.TrimSpace(line[:opIdx-1])
@@ -541,7 +541,7 @@ func extractVarName(line, token string) string {
 				lhs = lhs[len(prefix):]
 			}
 		}
-		
+
 		lhs = strings.TrimSpace(lhs)
 		end := -1
 		for i := len(lhs) - 1; i >= 0; i-- {
@@ -634,4 +634,3 @@ func isSequential(s string) bool {
 	}
 	return maxRun >= 12
 }
-

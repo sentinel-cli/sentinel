@@ -101,9 +101,9 @@ func parseStagedFiles(raw []byte) []StagedFile {
 		if len(parts) < 2 {
 			continue
 		}
-		status := strings.TrimSpace(string(parts[0]))
+		status := string(bytes.TrimSpace(parts[0]))
 		// For renames: R100\told\tnew — pick destination.
-		path := strings.TrimSpace(string(parts[len(parts)-1]))
+		path := string(bytes.TrimSpace(parts[len(parts)-1]))
 
 		files = append(files, StagedFile{
 			Path:   path,
@@ -122,7 +122,7 @@ func filterAddedLines(diff []byte) []byte {
 		if len(line) == 0 {
 			continue
 		}
-		if line[0] == '+' && (len(line) < 3 || string(line[:3]) != "+++") {
+		if line[0] == '+' && !bytes.HasPrefix(line, []byte("+++")) {
 			// Strip the leading '+' so the scanner sees the raw content.
 			buf.Write(line[1:])
 			buf.WriteByte('\n')
