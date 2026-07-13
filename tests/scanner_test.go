@@ -5,6 +5,7 @@ package tests
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
