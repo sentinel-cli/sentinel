@@ -144,7 +144,7 @@ Measured on real-world repositories with Sentinel against the two most popular a
 
 ---
 
-## Why Sentinel
+## Why Sentinel — Comparison (vs Gitleaks, TruffleHog, detect-secrets)
 
 | Feature | Sentinel | git-secrets | detect-secrets | TruffleHog |
 |---------|:--------:|:-----------:|:--------------:|:----------:|
@@ -811,6 +811,16 @@ BenchmarkFullPipeline-8         500   2,341,201 ns/op     12,340 B/op
 ## Contributing
 
 Contributions are welcome. All contributors must agree to the **[Contributor License Agreement](CLA.md)**. By submitting a pull request you confirm that you transfer copyright of the contribution to Khaled Hani. This protects the project's dual-licensing model.
+
+---
+
+<details>
+<summary>Repository SEO Optimization (Developer Reference)</summary>
+
+To ensure Sentinel ranks at the top of GitHub search results, make sure to add the following topics to your GitHub repository settings:
+`gitleaks-alternative`, `secret-scanner`, `pre-commit-hook`, `credentials-detector`, `security-tools`, `git-secrets-alternative`, `static-analysis`, `devsecops`.
+
+</details>
 
 ---
 
