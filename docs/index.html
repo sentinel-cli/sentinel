@@ -97,7 +97,7 @@
                 <a href="#masterpieces" class="nav-link">Projects</a>
                 <a href="#blog" class="nav-link">Blog</a>
                 <a href="#community" class="nav-link">Community</a>
-                <a href="research-2026-en.html" class="nav-link" style="font-weight: bold; color: var(--color-text-primary);">2026 Study</a>
+                <a href="https://www.aljazeera.com/where/palestine" target="_blank" class="nav-link" style="font-weight: bold; color: var(--color-text-primary);">Gaza Facts</a>
                 <span class="nav-link" style="color: var(--color-text-muted); cursor: not-allowed;" title="Disclosures will be posted soon after patches are confirmed.">In the Wild (Soon)</span>
             </div>
         </div>
@@ -149,7 +149,7 @@
             <p>Developer velocity is a major constraint for pre-commit verification. Hooks that introduce noticeable latency encourage developers to bypass the validation workflow entirely. To meet this constraint, Sentinel implements a three-tier pipeline that processes staging areas in milliseconds while maintaining high recall accuracy.</p>
 
             <h3>Tier 1: Prefix Automaton</h3>
-            <p>Every file is parsed through an $O(N)$ Aho-Corasick multi-pattern search trie. Custom user signatures and known credential templates are compiled directly into the state machine, allowing the engine to discover candidates in a single linear character pass.</p>
+            <p>Every file is parsed through an O(N) Aho-Corasick multi-pattern search trie. Custom user signatures and known credential templates are compiled directly into the state machine, allowing the engine to discover candidates in a single linear character pass.</p>
 
             <h3>Tier 2: Shannon Entropy Filtering</h3>
             <p>Candidate tokens matched in the first pass are evaluated for character randomness. Sentinel calculates the exact entropy of the string to differentiate actual randomized access tokens from standard code templates or placeholder variables.</p>
@@ -226,22 +226,22 @@
             <p>Sentinel is statically compiled to run natively across Linux, macOS, and Android/Termux. It does not require Go, Python, or additional runtime setups on the workstation.</p>
 
             <h3>Option A: Pre-compiled Binaries (Recommended)</h3>
-            <p>The fastest way to install Sentinel without dependencies. Perfect for Linux, macOS, and standalone Android setups. Download the corresponding architecture from our releases (e.g. <code>android-arm64</code>, <code>android-arm</code>, <code>linux-amd64</code>):</p>
+            <p>The fastest way to install Sentinel without dependencies. Example for Linux/macOS systems:</p>
             <pre class="font-mono">
-# 1. Download the target binary
-wget https://github.com/sentinel-cli/sentinel/releases/download/v2.0.7/sentinel-v2.0.7-android-arm64 -O sentinel
+# 1. Download the target binary (example for Linux AMD64)
+wget https://github.com/sentinel-cli/sentinel/releases/download/v2.0.7/sentinel-v2.0.7-linux-amd64 -O sentinel
 
 # 2. Add execution permissions
 chmod +x sentinel
 
-# 3. Move to your binary path ($PREFIX/bin for Termux, or /usr/local/bin for Linux/macOS)
-mv sentinel $PREFIX/bin/
+# 3. Move to your binary path (/usr/local/bin)
+sudo mv sentinel /usr/local/bin/
 
 # 4. Verify deployment
 sentinel version</pre>
 
             <h3>Option B: Package Manager (Android / Termux)</h3>
-            <p>If you are on Android/Termux, you can install Sentinel directly via the Termux User Repository (TUR):</p>
+            <p>If you are on Android/Termux, you can install Sentinel easily in just two command lines via the Termux User Repository (TUR):</p>
             <pre class="font-mono">
 pkg install tur-repo
 pkg install sentinel</pre>
@@ -393,7 +393,7 @@ allowlist_patterns:
                 09 / Community & Feedback
             </div>
             <h2>Get in touch & discuss security</h2>
-            <p>Sentinel is an open-source security tool built in collaboration with the developer community. We value feedback, rule suggestions, and reports from all users.</p>
+            <p>Sentinel is an open-source security tool developed as an individual effort. We value feedback, rule suggestions, and reports from all users.</p>
             
             <p>If you would like to report a security issue, propose a new credential signature, or ask questions about workstation deployments, please use our community channels:</p>
 

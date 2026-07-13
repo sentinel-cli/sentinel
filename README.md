@@ -17,6 +17,7 @@
 
 [![CI](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml/badge.svg?branch=main&v=4)](https://github.com/sentinel-cli/sentinel/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/sentinel-cli/sentinel?color=3c6382&logo=github&label=latest&v=4)](https://github.com/sentinel-cli/sentinel/releases)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Sentinel-3c6382.svg?logo=github&v=4)](https://github.com/marketplace/actions/sentinel-git-secrets-scanner)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-2f3542?logo=go&v=4)](https://go.dev)
 [![Go Reference](https://pkg.go.dev/badge/github.com/sentinel-cli/sentinel/v2.svg?v=4)](https://pkg.go.dev/github.com/sentinel-cli/sentinel/v2)
 [![Stars](https://img.shields.io/github/stars/sentinel-cli/sentinel?style=flat&logo=github&color=3c6382&v=4)](https://github.com/sentinel-cli/sentinel/stargazers)
