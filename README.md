@@ -1,15 +1,17 @@
 <div align="center">
 
-<pre style="line-height: 1.15; font-size: min(1.1vw, 11px); white-space: pre; overflow-x: auto; font-family: monospace; border: none; background: transparent; padding: 0; margin: 0; display: inline-block; text-align: left;">
- ██████╗ ██████╗  ███████╗ ████╗  ██╗  ██████╗  ██╗  ██╗
-██╔════╝ ██╔══██╗ ██╔════╝ ██╔██╗ ██║ ██╔═══██╗ ╚██╗██╔╝
-██║      ██████╔╝ █████╗   ██║╚██╗██║ ██║   ██║  ╚███╔╝ 
-██║      ██╔══██╗ ██╔══╝   ██║ ╚████║ ██║   ██║  ██╔██╗ 
-╚██████╗ ██║  ██║ ███████╗ ██║  ╚███║ ╚██████╔╝ ██╔╝╚██╗
- ╚═════╝ ╚═╝  ╚═╝ ╚══════╝ ╚═╝   ╚══╝  ╚═════╝  ╚═╝  ╚═╝
-</pre>
+```text
+ _____  _____  _____ _   _ _____ _   _ 
+/  __ \|  _  \|  ___| \ | |  _  \ \ / /
+| /  \/| |_| || |__ |  \| | | | |\ V / 
+| |    |  _  /|  __|| . ` | | | |/   \ 
+| \__/\| | \ \| |___| |\  | |_| / /^\ \
+ \____/\_|  \_\____/\_| \_/\___/\/   \/
+```
 
 **Enterprise-grade Git pre-commit secret detector, Gitleaks alternative, and high-performance credentials scanner written in Go.**
+
+</div>
 
 [![Release](https://img.shields.io/github/v/release/crenoxhq/crenox?color=3c6382&logo=github&label=latest&v=4)](https://github.com/crenoxhq/crenox/releases)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Crenox-3c6382.svg?logo=github&v=4)](https://github.com/marketplace/actions/crenox-git-secrets-scanner)
