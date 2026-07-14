@@ -1,23 +1,15 @@
 <div align="center">
 
-```text
- ┌─┐┬─┐┌─┐┌┐┌┌─┐┬ ┬
- │  ├┬┘├┤ ││││ │└┬┘
- └─┘┴└─└─┘┘└┘└─┘┴ ┴  SECURITY ENGINE (v2)
-```
+<pre style="line-height: 1.15; font-size: min(1.1vw, 11px); white-space: pre; overflow-x: auto; font-family: monospace; border: none; background: transparent; padding: 0; margin: 0; display: inline-block; text-align: left;">
+  ██████╗██████╗ ███████╗███╗   ██╗ ██████╗ ██╗  ██╗
+ ██╔════╝██╔══██╗██╔════╝████╗  ██║██╔═══██╗╚██╗██╔╝
+ ██║     ██████╔╝█████╗  ██╔██╗ ██║██║   ██║ ╚███╔╝ 
+ ██║     ██╔══██╗██╔══╝  ██║╚██╗██║██║   ██║ ██╔██╗ 
+ ╚██████╗██║  ██║███████╗██║ ╚████║╚██████╔╝██╔╝ ██╗
+  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝
+</pre>
 
 **Enterprise-grade Git pre-commit secret detector, Gitleaks alternative, and high-performance credentials scanner written in Go.**
-
-</div>
-
-```text
-========================================================================
-[MODULE]       github.com/crenoxhq/crenox/v2
-[PIPELINE]     T1 (Flat-DFA Trie) ➔ T2 (Shannon Entropy) ➔ T3 (Context)
-[LATENCY]      Sub-20ms per commit validation (0 heap allocations)
-[STEALTH]      100% local execution — zero network telemetry
-========================================================================
-```
 
 [![Release](https://img.shields.io/github/v/release/crenoxhq/crenox?color=3c6382&logo=github&label=latest&v=4)](https://github.com/crenoxhq/crenox/releases)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Crenox-3c6382.svg?logo=github&v=4)](https://github.com/marketplace/actions/crenox-git-secrets-scanner)
