@@ -97,7 +97,6 @@
                 <a href="#masterpieces" class="nav-link">Projects</a>
                 <a href="#blog" class="nav-link">Blog</a>
                 <a href="#community" class="nav-link">Community</a>
-                <a href="https://www.aljazeera.com/where/palestine" target="_blank" class="nav-link" style="font-weight: bold; color: var(--color-text-primary);">Gaza Facts</a>
                 <span class="nav-link" style="color: var(--color-text-muted); cursor: not-allowed;" title="Disclosures will be posted soon after patches are confirmed.">In the Wild (Soon)</span>
             </div>
         </div>
@@ -122,6 +121,10 @@
                     GitHub Codebase
                     <span class="btn-icon">↗</span>
                 </a>
+            </div>
+            
+            <div style="margin-top: 2rem; display: flex; align-items: center;">
+                <a href="https://www.producthunt.com/products/crenox-leak-secret-scanner?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-crenox-secret-scanner" target="_blank" rel="noopener noreferrer"><img alt="Crenox Secret Scanner - Ultra-fast, context-aware Git secret scanner in Go | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1196224&amp;theme=neutral&amp;t=1784131078630" style="width: 250px; height: 54px; border-radius: 6px;"></a>
             </div>
         </article>
 
@@ -421,7 +424,7 @@ allowlist_patterns:
     <!-- Asciinema Player JS -->
     <script src="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.min.js"></script>
     <script>
-        AsciinemaPlayer.create("demo.cast", document.getElementById("terminal-demo"), {
+        AsciinemaPlayer.create("demo.cast?v=2.1.0", document.getElementById("terminal-demo"), {
             cols: 110,
             rows: 24,
             autoPlay: true,

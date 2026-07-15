@@ -26,6 +26,10 @@
 [![License](https://img.shields.io/badge/license-AGPL_3.0-4b6584?v=4)](LICENSE)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg?v=4)](https://github.com/avelino/awesome-go)
 
+<br><br>
+
+<a href="https://www.producthunt.com/products/crenox-leak-secret-scanner?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-crenox-secret-scanner" target="_blank" rel="noopener noreferrer"><img alt="Crenox Secret Scanner - Ultra-fast, context-aware Git secret scanner in Go | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1196224&amp;theme=neutral&amp;t=1784131078630"></a>
+
 </div>
 
 ---
@@ -79,7 +83,7 @@ That is all. No configuration file required. No runtime dependencies. Works on L
 asciinema play https://crenoxhq.github.io/crenox/demo.cast
 ```
 
-![Crenox Demo](docs/demo.gif)
+![Crenox Demo](docs/demo.gif?v=2.1.0)
 
 ---
 
@@ -459,11 +463,24 @@ scan_binary_files: false
 exclude_paths:
   - "vendor/**"
   - "node_modules/**"
+  - "dist/**"
+  - "build/**"
+  - "out/**"
+  - "target/**"
+  - "bin/**"
+  - ".next/**"
+  - ".nuxt/**"
+  - ".yarn/**"
+  - ".git/**"
   - "*.lock"
   - "go.sum"
   - "package-lock.json"
+  - "pnpm-lock.yaml"
+  - "yarn.lock"
   - "**/locales/**"
   - "**/i18n/**"
+  - "**/*.min.js"
+  - "**/*.min.css"
 
 # File extensions to skip (case-insensitive).
 # Default includes images, fonts, audio, video, archives, binaries, office documents.
@@ -510,6 +527,10 @@ exclude_extensions:
   - ".vcf"
   - ".ics"
   - ".cache"
+  - ".pb.go"
+  - ".gen.go"
+  - ".g.go"
+  - ".map"
 
 # Allowlist: findings whose token matches are silently ignored.
 # Supports exact strings and filepath.Match glob patterns.

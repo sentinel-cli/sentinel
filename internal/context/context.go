@@ -227,6 +227,13 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 		}
 	}
 
+	// ── Check 9B: Variable Reference ─────────────────────────────────────────
+	// If the token is a pure-alphabetic variable reference like autoPassword or mySecretToken,
+	// suppress it as a variable reference rather than a hardcoded secret.
+	if isVariableReference(token) {
+		return SafeVariableName
+	}
+
 	// ── Check 10: Control flow / Conditional expressions ──────────────────────
 	// Reject lines containing Rust "if let " or Go "if " conditional checks,
 	// which are code logic rather than hardcoded credentials.
@@ -633,4 +640,32 @@ func isSequential(s string) bool {
 		}
 	}
 	return maxRun >= 12
+}
+
+// isVariableReference returns true if the token looks like a code variable identifier
+// rather than a hardcoded secret.
+func isVariableReference(token string) bool {
+	if !isAllAlpha(token) {
+		return false
+	}
+	lower := strings.ToLower(token)
+	// If it is just a common variable suffix word
+	if lower == "password" || lower == "token" || lower == "secret" || lower == "key" || lower == "auth" {
+		return true
+	}
+	// Common variable prefixes combined with credential suffixes
+	prefixes := []string{
+		"auto", "default", "temp", "mock", "user", "admin", "db", "config", "sys", "old", "new",
+		"test", "fake", "dummy", "local", "client", "server", "raw", "read", "write", "get", "set",
+		"current", "next", "prev", "var", "const", "let", "my", "our", "their", "your",
+	}
+	suffixes := []string{"password", "token", "secret", "key", "auth"}
+	for _, p := range prefixes {
+		for _, s := range suffixes {
+			if lower == p+s || lower == p+"_"+s || lower == p+"-"+s {
+				return true
+			}
+		}
+	}
+	return false
 }

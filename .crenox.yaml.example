@@ -37,11 +37,24 @@ scan_binary_files: false
 exclude_paths:
   - "vendor/**"
   - "node_modules/**"
+  - "dist/**"
+  - "build/**"
+  - "out/**"
+  - "target/**"
+  - "bin/**"
+  - ".next/**"
+  - ".nuxt/**"
+  - ".yarn/**"
+  - ".git/**"
   - "*.lock"
   - "go.sum"
   - "package-lock.json"
+  - "pnpm-lock.yaml"
+  - "yarn.lock"
   - "**/locales/**"
   - "**/i18n/**"
+  - "**/*.min.js"
+  - "**/*.min.css"
   # - "path/to/safe/directory/**"
 
 # Global allowlist for custom patterns or exact strings.
@@ -88,6 +101,10 @@ exclude_extensions:
   - ".scss"
   - ".csv"
   - ".hex"
+  - ".pb.go"
+  - ".gen.go"
+  - ".g.go"
+  - ".map"
 
 # ── Tier Disabling (Advanced) ─────────────────────────────────────────────────
 

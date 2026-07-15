@@ -96,6 +96,20 @@ func TestScanner_CommentedSecret_Suppressed(t *testing.T) {
 	}
 }
 
+func TestScanner_VariableReference_Suppressed(t *testing.T) {
+	s := defaultScanner()
+	// An unquoted variable reference matching password prefix/variable name should be suppressed
+	findings := scan(s, "signup-tether.html", `const password = autoPassword;`)
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for variable reference const password = autoPassword;, got %d", len(findings))
+	}
+
+	findingsKey := scan(s, "main.go", `const api_key = myApiKey;`)
+	if len(findingsKey) != 0 {
+		t.Errorf("expected 0 findings for variable reference const api_key = myApiKey;, got %d", len(findingsKey))
+	}
+}
+
 func TestScanner_InlineSuppression_DifferentForms(t *testing.T) {
 	s := defaultScanner()
 

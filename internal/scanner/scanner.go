@@ -960,9 +960,9 @@ func isKnownSafeFile(filePath string) bool {
 // HasExcludedExtension returns true when the file's extension is in the
 // excluded list.
 func HasExcludedExtension(filePath string, excluded []string) bool {
-	ext := filepath.Ext(filePath)
+	lowerPath := strings.ToLower(filePath)
 	for _, e := range excluded {
-		if strings.EqualFold(e, ext) {
+		if strings.HasSuffix(lowerPath, strings.ToLower(e)) {
 			return true
 		}
 	}
