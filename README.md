@@ -28,9 +28,11 @@
 
 <br><br>
 
-<a href="https://www.producthunt.com/products/crenox-leak-secret-scanner?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-crenox-secret-scanner" target="_blank" rel="noopener noreferrer"><img alt="Crenox Secret Scanner - Ultra-fast, context-aware Git secret scanner in Go | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1196224&amp;theme=neutral&amp;t=1784131078630"></a>
-
 </div>
+
+<p align="left">
+<a href="https://www.producthunt.com/products/crenox-leak-secret-scanner?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-crenox-secret-scanner" target="_blank" rel="noopener noreferrer"><img alt="Crenox Secret Scanner - Ultra-fast, context-aware Git secret scanner in Go | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1196224&amp;theme=neutral&amp;t=1784131078630"></a>
+</p>
 
 ---
 
