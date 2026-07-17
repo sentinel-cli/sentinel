@@ -149,6 +149,8 @@ Measured on real-world repositories with Crenox against the most popular alterna
 
 *Note: These benchmarks were conducted on an Android mobile device environment (native Termux). Execution times may be significantly faster on desktop/server hardware, although those environments have not been tested.*
 
+> **Want to reproduce these results on a real server?** A fully automated benchmark workflow is available — run it with a single click on GitHub Actions and get a fresh report generated on an Ubuntu cloud runner: [**▶ Run Cloud Benchmark**](https://github.com/crenoxhq/serverless-node-api-boilerplate/actions/workflows/benchmark.yml)
+
 **Summary:**
 
 | Metric | vs Gitleaks | vs Betterleaks |
