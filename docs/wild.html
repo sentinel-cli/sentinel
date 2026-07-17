@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crenox in the Wild — Vulnerability Disclosure Archive</title>
+    
+    <!-- Meta Descriptions for SEO -->
+    <meta name="description" content="A verified archive documenting critical security vulnerabilities and hardcoded credentials identified during routine scanning research.">
+    <meta name="keywords" content="crenox, secret scanner, vulnerability disclosure, firebase exploit, blooket leak, gitleaks, cybersecurity">
+    
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Core Stylesheet -->
+    <link rel="stylesheet" href="style.css?v=2.1.2">
+    
+    <style>
+        /* --- Premium Layout & Custom CSS Elements --- */
+        body {
+            background-color: #FAF9F6;
+        }
+
+        .back-nav {
+            margin-bottom: 3rem;
+            display: inline-flex;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            font-family: var(--font-sans-en);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            transition: var(--transition-clean);
+            border: 1px solid var(--color-border);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            background: var(--bg-surface);
+        }
+
+        .back-link:hover {
+            color: var(--color-text-primary);
+            border-color: var(--color-border-hover);
+            transform: translateX(-4px);
+        }
+
+        /* Timeline Tracker */
+        .timeline-container {
+            position: relative;
+            margin: 4rem 0;
+            padding-left: 2rem;
+            border-left: 1px dashed var(--color-border-hover);
+        }
+
+        .timeline-node {
+            position: relative;
+            margin-bottom: 5rem;
+        }
+
+        .timeline-node::before {
+            content: "";
+            position: absolute;
+            left: -2.35rem;
+            top: 0.25rem;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--color-text-primary);
+            border: 3px solid #FAF9F6;
+            box-shadow: 0 0 0 1px var(--color-border-hover);
+        }
+
+        /* Elegant Case Study Card */
+        .case-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+            transition: var(--transition-clean);
+        }
+
+        .case-card:hover {
+            border-color: #CFCFCF;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Node Headers & Meta */
+        .node-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .node-date {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            font-weight: 500;
+        }
+
+        /* Pill Badge Tags */
+        .badge {
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            padding: 0.2rem 0.6rem;
+            border-radius: 100px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        
+        .badge-critical { background: #FFEBE9; color: #CF222E; border: 1px solid rgba(207, 34, 46, 0.15); }
+        .badge-high { background: #FFF8E6; color: #B07800; border: 1px solid rgba(176, 120, 0, 0.15); }
+        .badge-disclosed { background: #E6F6FF; color: #0969DA; border: 1px solid rgba(9, 105, 218, 0.15); }
+
+        .case-title {
+            font-size: 1.85rem;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+            font-family: var(--font-serif-en);
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .case-title a {
+            color: inherit;
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: var(--transition-clean);
+        }
+
+        .case-title a:hover {
+            border-bottom-color: var(--color-text-primary);
+        }
+
+        .case-description {
+            font-size: 0.95rem;
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        /* Simulated MacOS Terminal for Code Display */
+        .terminal-mockup {
+            background: #1E1E1E;
+            border-radius: 8px;
+            border: 1px solid #333333;
+            overflow: hidden;
+            margin: 2rem 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .terminal-header {
+            background: #2D2D2D;
+            padding: 0.6rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid #1E1E1E;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-red { background: #FF5F56; }
+        .dot-yellow { background: #FFBD2E; }
+        .dot-green { background: #27C93F; }
+
+        .terminal-title {
+            color: #9A9A9A;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .terminal-body {
+            padding: 1.5rem;
+            margin: 0;
+            background: #1E1E1E;
+            overflow-x: auto;
+            border: none;
+            border-radius: 0;
+        }
+
+        .terminal-body code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #E3E3E3;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            display: block;
+        }
+
+        /* Premium Vulnerability Findings Table */
+        .table-container {
+            margin: 2rem 0;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg-surface);
+        }
+
+        .wild-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        .wild-table th, .wild-table td {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .wild-table th {
+            background: var(--bg-surface-alt);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-text-muted);
+        }
+
+        .wild-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .sev-indicator {
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+
+        /* Vector Bullet List */
+        .vector-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 1.5rem 0;
+        }
+
+        .vector-list li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+        }
+
+        .vector-list li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--color-text-primary);
+            font-weight: 700;
+        }
+
+        /* Responsive Layout Optimization */
+        @media (max-width: 768px) {
+            .case-card {
+                padding: 1.75rem;
+            }
+
+            .case-title {
+                font-size: 1.5rem;
+            }
+
+            .wild-table th, .wild-table td {
+                padding: 0.75rem 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .timeline-container {
+                padding-left: 1.25rem;
+            }
+            .timeline-node::before {
+                left: -1.6rem;
+            }
+            .case-card {
+                padding: 1.25rem;
+            }
+            .node-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            .terminal-body {
+                padding: 1rem;
+            }
+            .terminal-body code {
+                font-size: 0.725rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Minimal Header Navigation -->
+    <nav class="nav-bar">
+        <div class="container nav-wrapper">
+            <a href="index.html" class="nav-logo">
+                <svg class="logo-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span class="logo-text">Crenox</span>
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="index.html#philosophy" class="nav-link">Philosophy</a>
+                <a href="index.html#installation" class="nav-link">Install</a>
+                <a href="research-2026-en.html" class="nav-link" style="font-weight: bold; color: var(--color-text-primary);">2026 Study</a>
+                <a href="wild-ar.html" class="lang-switch-btn" aria-label="Switch to Arabic" title="العربية">
+                    <svg class="lang-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container" style="padding-top: 6rem; padding-bottom: 8rem;">
+        
+        <div class="back-nav">
+            <a href="index.html" class="back-link">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Hero Section -->
+        <article class="hero-section" style="padding-top: 0; padding-bottom: 2rem;">
+            <div class="eyebrow">
+                High-Impact Disclosure Log
+            </div>
+            <h1 class="hero-title" style="margin-bottom: 1.5rem;">Crenox in the Wild.</h1>
+            <p class="text-lead" style="margin-bottom: 0;">A technical audit archive documenting security vulnerabilities and plaintext credentials identified within public infrastructures.</p>
+        </article>
+
+        <!-- Vertical Timeline Tracker -->
+        <div class="timeline-container">
+            
+            <!-- Case Study 1: Blooket -->
+            <div class="timeline-node">
+                <div class="case-card">
+                    <div class="node-meta">
+                        <div class="timeline-date">July 12, 2026</div>
+                        <span class="badge badge-critical">CRITICAL</span>
+                        <span class="badge badge-disclosed">RESPONSIBLY DISCLOSED</span>
+                    </div>
+                    
+                    <h3 class="case-title" style="margin-top: 0; font-weight: 600; line-height: 1.4;">
+                        <img src="https://www.blooket.com/favicon.ico" width="20" height="20" alt="Blooket Logo" style="border-radius: 4px; display: inline-block; vertical-align: middle; margin-right: 0.5rem;">
+                        <a href="https://www.blooket.com" target="_blank" style="vertical-align: middle;">Blooket</a> <span style="vertical-align: middle;">Production Firebase Key Exposure</span>
+                    </h3>
+                    
+                    <p class="case-description">During systematic checks of open-source projects, an exposed production Firebase API key belonging to Blooket, an educational platform, was identified. The key was found hardcoded inside a client-side database interaction script.</p>
+                    
+                    <blockquote>
+                        "This exposure introduces risks of unauthorized database queries, resource consumption, and potential data integrity issues due to client-side database authorization keys."
+                    </blockquote>
+
+                    <h4 style="margin-top: 2rem; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted);">Technical Analysis</h4>
+                    
+                    <!-- Code Terminal Mockup -->
+                    <div class="terminal-mockup">
+                        <div class="terminal-header">
+                            <span class="terminal-dot dot-red"></span>
+                            <span class="terminal-dot dot-yellow"></span>
+                            <span class="terminal-dot dot-green"></span>
+                            <span class="terminal-title">floodGame.js — commit: 96193758</span>
+                        </div>
+                        <pre class="terminal-body"><code>const liveApp = firebase.initializeApp({
+    apiKey: "AIzaSyCA-cTOnX19f6LFnDVVsHXya3k***********", // Masked
+    authDomain: "blooket-2020.firebaseapp.com",
+    projectId: "blooket-2020",
+    databaseURL: fbShardURL
+});</code></pre>
+                    </div>
+
+                    <h4 style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted);">Remediation Status</h4>
+                    <p class="case-description" style="margin-bottom: 0;">A security report was submitted to the Blooket team. Realtime Database rules have been updated to restrict direct client access, and the configuration secrets have been revoked.</p>
+                </div>
+            </div>
+
+            <!-- Case Study 2: demo-app-stream-org -->
+            <div class="timeline-node" style="margin-bottom: 0;">
+                <div class="case-card">
+                    <div class="node-meta">
+                        <div class="timeline-date">July 11, 2026</div>
+                        <span class="badge badge-critical">FULL COMPROMISE</span>
+                        <span class="badge badge-disclosed">REPORTED</span>
+                    </div>
+                    
+                    <h3 class="case-title" style="margin-top: 0; font-weight: 600;">
+                        Plaintext Configuration and TLS Private Key Exposure in demo-app-stream-org
+                    </h3>
+                    
+                    <p class="case-description">A security sweep of a workspace associated with the domain <code>link12.ddns.net</code> identified critical credential exposures, including plaintext environment files, Rails cryptographic secrets, and active TLS certificate private keys committed to the Git repository history.</p>
+                    
+                    <blockquote>
+                        "The ingestion of private keys and environment secrets into version control highlights the critical importance of automated static analysis and pre-commit checks to catch secrets before staging."
+                    </blockquote>
+
+                    <h4 style="margin-top: 2rem; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted);">Leaked Assets Summary</h4>
+                    
+                    <!-- Responsive Findings Table -->
+                    <div class="table-container" style="overflow-x: auto;">
+                        <table class="wild-table font-sans">
+                            <thead>
+                                <tr>
+                                    <th>Severity</th>
+                                    <th>Asset Type</th>
+                                    <th>Exposed Path</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="sev-indicator" style="color: #CF222E;">CRITICAL</span></td>
+                                    <td>TLS Certificate Private Key</td>
+                                    <td><code>.gitlab/.../nginx/certs/privkey.pem</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="sev-indicator" style="color: #CF222E;">CRITICAL</span></td>
+                                    <td>Azure Blob Storage Access Key</td>
+                                    <td><code>backend/.env</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="sev-indicator" style="color: #CF222E;">CRITICAL</span></td>
+                                    <td>Gmail IMAP App Password</td>
+                                    <td><code>backend/.env</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="sev-indicator" style="color: #B07800;">HIGH</span></td>
+                                    <td>Rails <code>SECRET_KEY_BASE</code></td>
+                                    <td><code>backend/.env</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="sev-indicator" style="color: #B07800;">HIGH</span></td>
+                                    <td>Internal backup URL with IP Address</td>
+                                    <td><code>config/initializers/backup.rb</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h4 style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted);">Exploitation Scenarios & Vector Vectors</h4>
+                    <ul class="vector-list">
+                        <li><strong>HTTPS Sniffing:</strong> Adversaries could intercept and decrypt traffic or spoof the link12.ddns.net domain.</li>
+                        <li><strong>Cloud Storage:</strong> Full access to download, alter, or purge all application attachments in Azure containers.</li>
+                        <li><strong>Administrative Inbox:</strong> Full mail access to nico******************@gmail.com via IMAP, enabling password resets of secondary services.</li>
+                        <li><strong>Cookie Forgery:</strong> Bypass authentication gates using the Rails secret signing key to forge session tokens.</li>
+                    </ul>
+
+                    <h4 style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); margin-top: 2rem;">Remediation Steps</h4>
+                    <p class="case-description" style="margin-bottom: 0;">An advisory report was compiled and delivered to the system administrator. Critical remediation priorities include certificate revocation, Azure Storage rotation, App Password revocation, and centralized secrets management.</p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+</body>
+</html>

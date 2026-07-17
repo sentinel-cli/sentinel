@@ -40,8 +40,4 @@ skills-lock.json
 # Cloned local repositories
 nexusfi-web/
 
-# Exclude findings pages until disclosures are closed and patched
-docs/wild.html
-docs/wild-ar.html
-
 

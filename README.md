@@ -102,7 +102,7 @@ asciinema play https://crenoxhq.github.io/crenox/demo.cast
 - [Usage](#usage)
 - [Output Reference](#output-reference)
 - [False Positive Handling](#false-positive-handling)
-- [In the Wild (Soon)](#)
+- [In the Wild (Live Archive)](https://crenoxhq.github.io/crenox/wild.html)
 - [Running Tests](#running-tests)
 - [Contributing](#contributing)
 - [License](#license)
