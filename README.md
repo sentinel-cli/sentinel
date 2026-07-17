@@ -147,6 +147,8 @@ Measured on real-world repositories with Crenox against the most popular alterna
 
 </details>
 
+*Note: These benchmarks were conducted on an Android mobile device environment (native Termux). Execution times may be significantly faster on desktop/server hardware, although those environments have not been tested.*
+
 **Summary:**
 
 | Metric | vs Gitleaks | vs Betterleaks |
