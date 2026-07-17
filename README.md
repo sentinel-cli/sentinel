@@ -85,7 +85,7 @@ That is all. No configuration file required. No runtime dependencies. Works on L
 asciinema play https://crenoxhq.github.io/crenox/demo.cast
 ```
 
-![Crenox Demo](docs/demo.gif?v=2.1.1)
+![Crenox Demo](docs/demo.gif?v=2.1.2)
 
 ---
 
@@ -429,7 +429,7 @@ crenox uninstall
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/crenoxhq/crenox
-    rev: v2.1.1 # Replace with the latest release version
+    rev: v2.1.2 # Replace with the latest release version
     hooks:
       - id: crenox
 ```
