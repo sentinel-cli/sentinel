@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-07-17
+
+### Added
+- **New Built-in Signatures:** Added new detection rules covering:
+  - Slack Incoming Webhook URLs (`slack-webhook`) with strict regex validator requiring canonical T/B segment lengths.
+  - Discord Webhook URLs (`discord-webhook`) with full-length token validator.
+  - GitHub OAuth Client IDs (`github-client-id`, prefix `Iv1.`) with 16-character hex validator.
+  - AWS Secret Access Key variable assignments (`aws-secret-key-var`, `aws-secret-key-var-2`) for `aws_secret` and `aws_key` prefixes.
+  - MongoDB Connection Strings in both SRV (`mongodb-dsn`) and plain (`mongodb-dsn-plain`) formats with credential-embedded regex validators.
+  - Postgres Connection Strings (`postgres-dsn`) with credential-embedded regex validator.
+  - Short password variable prefix signatures (`generic-pass-key`, `generic-pwd-key`, `generic-pass-key-snake`, `generic-pwd-key-snake`) for `pass`, `pwd`, `_pass`, `_pwd` prefixes.
+- **PEM Footer Validation:** Added a `hasPEMEnd` sentinel in `ScanReader` to suppress PEM private-key findings that lack an `-----END ...-----` footer, eliminating false positives from PEM header-only templates and JSON regex definition files.
+- **`isLogIndicator` Extension:** Extended the log-indicator heuristic inside `ScanReader` to also recognise the `key` substring as a log-level word (`key`, `KEY`), preventing log lines such as `"key"` and `"KEY"` from producing false positive secret alerts.
+- **`test_token` Context Suppression:** Added `test_token` to the `context.go` safe-token list to prevent dummy/mock token strings from triggering generic token alerts.
+- **New Test Signatures Suite:** Added `TestScanner_PEMFooterValidationAndNewSignatures` inside `tests/scanner_test.go` to cover all newly added rules (PEM footer validation, Slack/Discord webhooks, GitHub Client ID, AWS Secret assignment, and generic password assignments).
+- **Scanner Internal Test Suite:** Added `internal/scanner/scanner_internal_test.go` covering `isDuplicateMatch` and `isLogIndicator` internal helpers with white-box access.
+- **Updater Tests Extended:** Expanded `internal/updater/updater_test.go` coverage to verify version-comparison edge cases including pre-release suffixes and equal-version comparisons.
+- **Cloud Benchmark Workflow:** Added `.github/workflows/benchmark.yml` and `scripts/run_benchmark.py` to the `serverless-node-api-boilerplate` repository for automated multi-tool performance measurement on GitHub Actions Ubuntu cloud runners with artifact upload.
+
+### Fixed
+- **Variable Suffix Match Truncation:** Fixed a bug in `extractTokenFromOffset` where the engine did not skip trailing identifier characters (`[a-zA-Z0-9_]`) after a signature prefix match. This caused suffixes like `_ACCESS_KEY` to be included in the reported token, and confusingly matched `aws_secret` inside longer variable names. The scanner now correctly advances past the full identifier before searching for the next assignment operator.
+- **Overlapping Match Deduplication — Priority Hierarchy:** Hardened `isDuplicateMatch` / finding-replacement logic in `ScanContent` to enforce a strict 4-level priority chain on the same line:
+  1. Pattern (TierTrie) beats Entropy (TierEntropy).
+  2. Specific rule (non-`generic-`) beats generic rule (`generic-*`).
+  3. Higher severity beats lower severity.
+  4. Shorter (more precise) token beats longer token at equal severity.
+  This eliminated duplicate findings when both a specific pattern rule and an entropy rule fired on the same secret token.
+- **Generic Password Token Noise Filter:** Added a fast-path rejection inside `isPlausibleSecretToken` to skip tokens that contain shell expansion characters (`$`, `[`, `]`, `*`, `;`, `|`, `&`, `"`, `!`, `?`, ` `, `:`) or `->` pointers when matched by `generic-password-key` or `generic-secret-key` rules, preventing struct field accesses and shell variable expansions from being reported as passwords.
+- **DSN/Webhook Keyword Bypass:** Corrected a conditional inside `extractTokenFromOffset` that was incorrectly applying the keyword-assignment check to DSN and webhook signatures. DSN (`-dsn`), basic-auth URL (`url-basic-auth`), and webhook (`webhook`) rules are now excluded from the `isAssignmentOrKeyword` gate so they are never silently dropped.
+- **Unit Test Push Protection:** Updated all mock secrets in `tests/scanner_test.go` (AWS Access Key IDs, Slack Webhook URLs, AWS Secret Access Keys) to use dummy/fake placeholder values (`AKIA000000000…`, `T_DUMMY_ID/B_DUMMY_ID/…`, `dummy_secret_key_with_sufficient_entropy_12345`) that bypass GitHub Push Protection while remaining fully compatible with Crenox signature matchers.
+
+### Changed
+- **Benchmark Documentation Update:** Replaced legacy TruffleHog/Gitleaks benchmark tables in `README.md` with verified 5-iteration averages (Crenox vs. Gitleaks v8.18.2 vs. Betterleaks v1.6.1) on three public repositories, with direct GitHub links for each repository. Added a benchmark environment note clarifying that results were obtained on an Android/Termux mobile device and may be faster on desktop/server hardware.
+- **SEO & Canonical URL Cleanup:** Optimized meta descriptions, canonical URLs, structured data (`softwareVersion`), and `robots.txt`/`sitemap.xml` across `docs/index.html`, `docs/index-ar.html`, `action.yml`, and `README.md`. Removed promotional terminology and repository SEO optimization reference blocks.
+- **Demo Asset Refresh:** Removed the `docs/demo.mp4` binary from version control (file was too large and caused unnecessary repository bloat). The animated `demo.gif` continues to serve as the canonical visual demonstration.
+
 ## [2.1.1] - 2026-07-15
 
 ### Added

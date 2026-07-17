@@ -38,7 +38,7 @@
       "description": "A zero-dependency Git pre-commit secret detector written in Go.",
       "operatingSystem": "Linux, macOS, Windows, Android (Termux)",
       "applicationCategory": "DeveloperApplication",
-      "softwareVersion": "2.1.1",
+      "softwareVersion": "2.1.2",
       "codeRepository": "https://github.com/crenoxhq/crenox",
       "license": "https://github.com/crenoxhq/crenox/blob/main/LICENSE",
       "offers": {
@@ -59,7 +59,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="style.css?v=2.1.1">
+    <link rel="stylesheet" href="style.css?v=2.1.2">
     <!-- Asciinema Player CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.css">
 </head>
@@ -171,43 +171,43 @@
             <div class="eyebrow">
                 03 / إحصائيات الأداء
             </div>
-            <h2>مقارنة الأداء: كرينوكس ضد جيتليكس وترافلهوغ (Crenox vs Gitleaks vs TruffleHog)</h2>
-            <p>لضمان تحليل أداء شفاف، قمنا بمقارنة كرينوكس بأبرز أدوات الكشف (Gitleaks و TruffleHog). تم جمع هذه المقاييس على محطة عمل محلية بمعالج ثماني النواة (ARM64)، مع قياس زمن الاستجابة والحد الأقصى لاستهلاك الذاكرة العشوائية (Peak RSS).</p>
+            <h2>مقارنة الأداء: كرينوكس ضد جيتليكس وبيترليكس (Crenox vs Gitleaks vs Betterleaks)</h2>
+            <p>تم قياس الأداء على مستودعات حقيقية ومفتوحة المصدر، باستخدام بيئة <strong>GitHub Actions Ubuntu cloud runner</strong> — البنية التحتية ذاتها المستخدمة في خطوط CI/CD الفعلية.</p>
 
             <div class="spec-table-wrapper">
                 <table class="spec-table font-mono">
                     <thead>
                         <tr>
                             <th>المقياس المرصود</th>
-                            <th>كرينوكس (<span class="latest-version">v2.1.1</span>)</th>
+                            <th>كرينوكس (<span class="latest-version">v2.1.2</span>)</th>
                             <th>جيتليكس (v8.18.2)</th>
-                            <th>ترافلهوغ (v3.95.9)</th>
+                            <th>بيترليكس (v1.6.1)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="spec-label">حجم الملف الثنائي (المجمّع)</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">7.2 MB</td>
-                            <td style="direction: ltr; text-align: right;">6.4 MB</td>
-                            <td style="direction: ltr; text-align: right;">29.0 MB</td>
+                            <td class="spec-label">ذاكرة الوصول العشوائي — فحص الملفات</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">14.8 – 17.4 MB</td>
+                            <td style="direction: ltr; text-align: right;">21.6 – 23.4 MB</td>
+                            <td style="direction: ltr; text-align: right;">36.8 – 54.9 MB</td>
                         </tr>
                         <tr>
-                            <td class="spec-label">ذاكرة محطة العمل (Peak RSS)</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">10.3 - 11.6 MB</td>
-                            <td style="direction: ltr; text-align: right;">15.1 - 17.9 MB</td>
-                            <td style="direction: ltr; text-align: right;">207.6 - 210.9 MB</td>
+                            <td class="spec-label">وقت فحص الملفات (متوسط)</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">5.2 – 7.5 ms</td>
+                            <td style="direction: ltr; text-align: right;">24.2 – 39.7 ms</td>
+                            <td style="direction: ltr; text-align: right;">51.7 – 176.8 ms</td>
                         </tr>
                         <tr>
-                            <td class="spec-label">فحص ملفات النظام المرحلية</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">17 - 25 ms</td>
-                            <td style="direction: ltr; text-align: right;">124 - 181 ms</td>
-                            <td style="direction: ltr; text-align: right;">5.68 - 6.61 s</td>
+                            <td class="spec-label">وقت الفحص التاريخي (متوسط)</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">7.9 – 11.8 ms</td>
+                            <td style="direction: ltr; text-align: right;">26.6 – 45.0 ms</td>
+                            <td style="direction: ltr; text-align: right;">84.3 – 196.6 ms</td>
                         </tr>
                         <tr>
-                            <td class="spec-label">الفحص التاريخي (سجل Git)</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">30 - 33 ms</td>
-                            <td style="direction: ltr; text-align: right;">158 - 176 ms</td>
-                            <td style="direction: ltr; text-align: right;">5.98 - 6.55 s</td>
+                            <td class="spec-label">دقة الاستدعاء التاريخي (sample_secrets)</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary); direction: ltr; text-align: right;">9 / 9 (100%)</td>
+                            <td style="direction: ltr; text-align: right;">5 / 9 (56%)</td>
+                            <td style="direction: ltr; text-align: right;">5 / 9 (56%)</td>
                         </tr>
                         <tr>
                             <td class="spec-label">الاعتمادية الخارجية للملف</td>
@@ -218,6 +218,9 @@
                     </tbody>
                 </table>
             </div>
+            <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-top: 1rem;">
+                شفاف وقابل للتدقيق — النتائج مُولَّدة بواسطة <a href="https://github.com/crenoxhq/serverless-node-api-boilerplate/blob/main/scripts/run_benchmark.py" target="_blank" style="color: inherit; text-decoration: underline;">سكربت مقارنة مفتوح المصدر</a>. المنهجية والأكشن متاحان للعموم. <a href="https://github.com/crenoxhq/serverless-node-api-boilerplate/actions/workflows/benchmark.yml" target="_blank" style="color: inherit; text-decoration: underline;">عرض أحدث تشغيل ←</a>
+            </p>
         </section>
 
         <!-- Chapter 4: Installation -->
@@ -339,6 +342,12 @@ allowlist_patterns:
             
             <div style="margin: 2rem 0; border-top: 1px solid var(--color-border);">
                 <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
+                    <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">17 يوليو 2026</p>
+                    <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-ar); font-size: 1.5rem; font-weight: 700;"><a href="https://github.com/crenoxhq/crenox/blob/dev/CHANGELOG.md" target="_blank" style="color: inherit; text-decoration: none;">الإصدار 2.1.2: توقيعات جديدة، تحسين إزالة التكرار، وبينشمارك سحابي</a></h4>
+                    <p style="font-size: 0.9rem; margin-bottom: 0; color: var(--color-text-muted);">يضيف الإصدار 2.1.2 أكثر من 10 توقيعات كشف مدمجة جديدة (روابط Slack وDiscord، معرّفات GitHub Client، MongoDB وPostgres DSNs، متغيرات مفتاح AWS)، ويُحكم سلسلة أولويات إزالة التكرار الرباعية (نمط Trie > توقيع محدد > شدة الخطورة > طول الرمز)، ويتحقق من وجود تذييل END لمفاتيح PEM قبل الإبلاغ عنها، ويُطلق نظام بينشمارك آلي قابل للتدقيق على GitHub Actions لمقارنة كرينوكس مع Gitleaks وBetterleaks.</p>
+                </div>
+
+                <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
                     <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">13 يوليو 2026</p>
                     <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-ar); font-size: 1.5rem; font-weight: 700;"><a href="https://github.com/crenoxhq/crenox" target="_blank" style="color: inherit; text-decoration: none;">إعادة تدوير الذاكرة: تقييد استهلاك الذاكرة المؤقتة عبر sync.Pool</a></h4>
                     <p style="font-size: 0.9rem; margin-bottom: 0; color: var(--color-text-muted);">كيف يقدم الإصدار 2.0.7 محرك فحص متدفق عبر قنوات 8 ميجابايت مع تخزين مؤقت عام للذاكرة المستعملة. أدى ذلك إلى تقييد حجم الذاكرة المستهلكة RSS بحدود عدد خيوط المعالجة المتزامنة فقط، متفادياً تراكم حجز الذاكرة ومقلصاً ذروة RAM بمقدار 13 ضعفاً.</p>
@@ -420,11 +429,11 @@ allowlist_patterns:
     </footer>
 
     <!-- JavaScript -->
-    <script src="app.js?v=2.1.1"></script>
+    <script src="app.js?v=2.1.2"></script>
     <!-- Asciinema Player JS -->
     <script src="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.min.js"></script>
     <script>
-        AsciinemaPlayer.create("demo.cast?v=2.1.1", document.getElementById("terminal-demo"), {
+        AsciinemaPlayer.create("demo.cast?v=2.1.2", document.getElementById("terminal-demo"), {
             cols: 110,
             rows: 24,
             autoPlay: true,

@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	repoURL   = "https://api.github.com/repos/crenoxhq/crenox/releases/latest"
 	cacheFile = ".config/crenox/last_check.json"
 )
 
