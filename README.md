@@ -46,7 +46,7 @@ Crenox uses a **three-tier detection pipeline** designed for speed and false pos
 
 | Tier | Engine | Purpose |
 |------|--------|---------|
-| 1 — PATTERN | Aho-Corasick automaton | Matches 80+ known secret signatures in O(n) time, zero allocations |
+| 1 — PATTERN | Aho-Corasick automaton | Matches 92 known secret signatures in O(n) time, zero allocations |
 | 2 — ENTROPY | Shannon entropy analysis | Catches unknown secrets by measuring information density |
 | 3 — CONTEXT | Context classifier | Suppresses false positives from comments, test files, and placeholders |
 
@@ -316,12 +316,13 @@ A same-line annotation suppresses only that line. A comment-line annotation supp
 
 | Category | Signatures |
 |----------|-----------|
-| **GitHub** | Classic PAT (`ghp_`), OAuth (`gho_`), App Installation (`ghs_`), Refresh (`ghr_`), Fine-grained PAT (`github_pat_`), and suffix-matched environment tokens (`_GITHUB_TOKEN`) |
+| **GitHub** | Classic PAT (`ghp_`), OAuth (`gho_`), App Installation (`ghs_`), Refresh (`ghr_`), Fine-grained PAT (`github_pat_`), Client ID (`Iv1.`, 16-char hex validated), and suffix-matched environment tokens (`_GITHUB_TOKEN`) |
 | **Heroku** | API Key (`HEROKU_API_KEY`, regex-validated), OAuth Token (`heroku_oauth_token`) |
 | **GitLab** | Personal Access Token (`glpat-`), Pipeline Trigger (`glptt-`), Runner Registration (`GR1348941`), Runner Token (`glrt-`) |
-| **AWS** | Access Key ID (`AKIA`, validated `AKIA[0-9A-Z]{16}`), MFA Device (`ABIA`), STS Temporary Key (`ASIA`) |
+| **AWS** | Access Key ID (`AKIA`, validated `AKIA[0-9A-Z]{16}`), MFA Device (`ABIA`), STS Temporary Key (`ASIA`), and Secret Access Key variable assignments (`aws_secret`, `aws_key`) |
 | **Google Cloud** | Service Account JSON (`"type": "service_account"`), API Key (`AIzaSy`), OAuth Client ID (`.apps.googleusercontent.com`), OAuth Client Secret (`GOCSPX-`) |
-| **Slack** | Bot (`xoxb-`), User (`xoxp-`), Workspace (`xoxa-`), Refresh (`xoxr-`) |
+| **Slack** | Bot (`xoxb-`), User (`xoxp-`), Workspace (`xoxa-`), Refresh (`xoxr-`), and Incoming Webhook (`https://hooks.slack.com/services/`, regex-validated) |
+| **Discord** | Webhook URL (`https://discord.com/api/webhooks/`, regex-validated) |
 | **Stripe** | Live Secret (`sk_live_`), Live Restricted (`rk_live_`), Test Secret (`sk_test_`) |
 | **OpenAI** | Classic (`sk-`), Project key (`sk-proj-`) |
 | **Anthropic** | API key (`sk-ant-`) |
@@ -341,7 +342,7 @@ A same-line annotation suppresses only that line. A comment-line annotation supp
 | **Cloudflare** | API Token (`CF_`) |
 | **HuggingFace** | API Token (`hf_`) |
 | **Shopify** | Custom App (`shpca_`), Private App (`shppa_`), Access Token (`shpat_`) |
-| **Generic** | `password=` `secret=` `api_key=` `token=` `auth=` and their YAML/JSON colon variants |
+| **Generic** | `password=`, `secret=`, `api_key=`, `token=`, `auth=`, `pass=`, `pwd=`, and their YAML/JSON/space colon and snake_case variants |
 | **Django & Rails**| `SECRET_KEY =`, Rails `secret_key_base` (space and colon assignments) |
 | **WordPress** | `AUTH_KEY` `SECURE_AUTH_KEY` `LOGGED_IN_KEY` `NONCE_KEY` `AUTH_SALT` `SECURE_AUTH_SALT` `LOGGED_IN_SALT` `NONCE_SALT` |
 | **Crypto Wallets** | BIP-39 mnemonic (12/15/18/21/24 words, validated against 2048-word dictionary) |
