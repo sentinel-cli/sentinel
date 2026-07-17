@@ -321,3 +321,28 @@ func TestScanner_GiantComprehensiveSuite(t *testing.T) {
 	})
 }
 
+func TestScanner_SameLineDeduplication(t *testing.T) {
+	a := trie.Build(trie.BuiltinSignatures)
+	s := scanner.New(a, scanner.Options{
+		EntropyThreshold: 3.5,
+		MinSecretLength:  20,
+	})
+
+	// 1. Verify same token on different lines is NOT deduplicated (both reported)
+	content := []byte("password = \"ghp_REALTOKEN1234567890abcdef\"\nother = \"ghp_REALTOKEN1234567890abcdef\"")
+	findings := s.ScanContent("test.go", content)
+	if len(findings) != 2 {
+		t.Errorf("expected 2 findings for duplicate tokens on different lines, got %d", len(findings))
+	}
+	if findings[0].Line != 1 || findings[1].Line != 2 {
+		t.Errorf("expected lines 1 and 2, got %d and %d", findings[0].Line, findings[1].Line)
+	}
+
+	// 2. Verify same token on the same line is deduplicated (only 1 reported)
+	contentSame := []byte("password = \"ghp_REALTOKEN1234567890abcdef\" token = \"ghp_REALTOKEN1234567890abcdef\"")
+	findingsSame := s.ScanContent("test.go", contentSame)
+	if len(findingsSame) != 1 {
+		t.Errorf("expected 1 finding for duplicate tokens on the same line, got %d", len(findingsSame))
+	}
+}
+

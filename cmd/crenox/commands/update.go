@@ -178,18 +178,22 @@ This command performs the following actions:
 				if err == nil && shaResp.StatusCode == http.StatusOK {
 					defer shaResp.Body.Close()
 					shaBytes, _ := io.ReadAll(shaResp.Body)
-					expectedHash := strings.Fields(string(shaBytes))[0]
-
-					f, err := os.Open(tmpPath)
-					if err == nil {
-						h := sha256.New()
-						io.Copy(h, f)
-						f.Close()
-						actualHash := hex.EncodeToString(h.Sum(nil))
-						if actualHash != expectedHash {
-							os.Remove(tmpPath)
-							return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
+					fields := strings.Fields(string(shaBytes))
+					if len(fields) > 0 {
+						expectedHash := fields[0]
+						f, err := os.Open(tmpPath)
+						if err == nil {
+							h := sha256.New()
+							io.Copy(h, f)
+							f.Close()
+							actualHash := hex.EncodeToString(h.Sum(nil))
+							if actualHash != expectedHash {
+								os.Remove(tmpPath)
+								return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
+							}
 						}
+					} else {
+						fmt.Println("Warning: SHA-256 checksum file format is invalid or empty.")
 					}
 				} else {
 					fmt.Println("Warning: Could not fetch SHA-256 checksum file.")

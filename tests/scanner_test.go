@@ -768,8 +768,8 @@ func TestScanner_V2_Reliability_Intelligence(t *testing.T) {
 		content := []byte(`
 			var token1 = "ghp_EXACTMATCHONLY1234567890123456" // Should be ALLOWED
 			var token2 = "ghp_EXACTMATCHONLY1234567890123456789" // Should be BLOCKED (different)
-			var token3 = "AKIAIOSFODNN7ALLOWED" // Should be ALLOWED
-			var token4 = "AKIAIOSFODNN7BLOCKED" // Should be BLOCKED
+			var token3 = "AKIA000000000ALLOWED" // Should be ALLOWED
+			var token4 = "AKIA000000000BLOCKED" // Should be BLOCKED
 		`)
 
 		findings := sec.ScanContent("config/keys.go", content)
@@ -943,5 +943,74 @@ func TestScanner_FalsePositive_Refinement(t *testing.T) {
 	findings = s.ScanContent("messages_pb2.py", []byte(`_COMMAND_ENVIRONMENTVARIABLE = _descriptor.Descriptor(name='CommandEnvironmentVariable', full_name='CommandEnvironmentVariable', serialized_start=12345)`))
 	if len(findings) != 0 {
 		t.Errorf("expected 0 findings for Python protobuf file, got %d: %+v", len(findings), findings)
+	}
+}
+
+func TestScanner_PEMFooterValidationAndNewSignatures(t *testing.T) {
+	s := defaultScanner()
+
+	// 1. PEM Key with footer - SHOULD DETECT
+	pemWithFooter := `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA3...
+-----END RSA PRIVATE KEY-----
+`
+	findings := s.ScanContent("cert.pem", []byte(pemWithFooter))
+	if len(findings) == 0 {
+		t.Error("expected finding for valid PEM key with footer")
+	}
+
+	// 2. PEM Key template without footer - SHOULD IGNORE (False Positive suppression)
+	pemTemplate := `"RSA private key": "-----BEGIN RSA PRIVATE KEY-----"`
+	findings = s.ScanContent("regexes.json", []byte(pemTemplate))
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for PEM header template, got %d", len(findings))
+	}
+
+	// 3. Slack Webhook URL - SHOULD DETECT
+	slackWebhook := `webhook := "https://hooks.slack.com/services/T_DUMMY_ID/B_DUMMY_ID/aBcDeFgHiJkLmNoPqRsTuVwX"`
+	findings = s.ScanContent("config.js", []byte(slackWebhook))
+	if len(findings) == 0 {
+		t.Error("expected finding for Slack Webhook URL")
+	}
+
+	// 4. Discord Webhook URL - SHOULD DETECT
+	discordWebhook := `webhook := "https://discord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRsTuVwXaBcDeFgHiJkLmNoPqRsTuVwXaBcDeFgHiJkLmNoPqRs"`
+	findings = s.ScanContent("config.js", []byte(discordWebhook))
+	if len(findings) == 0 {
+		t.Error("expected finding for Discord Webhook URL")
+	}
+
+	// 5. GitHub Client ID - SHOULD DETECT
+	githubClientId := `clientId := "Iv1.0123456789abcdef"`
+	findings = s.ScanContent("config.js", []byte(githubClientId))
+	if len(findings) == 0 {
+		t.Error("expected finding for GitHub Client ID")
+	}
+
+	// 6. AWS Secret Access Key via variable assignment - SHOULD DETECT
+	awsSecretAssign := `aws_secret := "dummy_secret_key_with_sufficient_entropy_12345"`
+	findings = s.ScanContent("config.js", []byte(awsSecretAssign))
+	if len(findings) == 0 {
+		t.Error("expected finding for AWS Secret Key variable assignment")
+	}
+
+	// 7. Generic passwords containing '=' and '+' - SHOULD DETECT
+	pgPassLine := `var pg_pass="sup3rstr0ngpass1ForGG";`
+	findings = s.ScanContent("postgres_model.js", []byte(pgPassLine))
+	if len(findings) == 0 {
+		t.Error("expected finding for pg_pass")
+	}
+
+	ldapPwdLine := `ldap_pwd = "k%udk423u4%P8=H_"`
+	findings = s.ScanContent("define_ldap", []byte(ldapPwdLine))
+	if len(findings) == 0 {
+		t.Error("expected finding for ldap_pwd")
+	}
+
+	yamlPasswordLine := `  password: J6T4ww+##14m`
+	findings = s.ScanContent("gg_creds.yaml", []byte(yamlPasswordLine))
+	if len(findings) == 0 {
+		t.Error("expected finding for yaml password containing '+'")
 	}
 }

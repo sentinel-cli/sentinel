@@ -111,19 +111,22 @@ asciinema play https://crenoxhq.github.io/crenox/demo.cast
 
 ## Performance
 
-Measured on real-world repositories with Crenox against the two most popular alternatives.
+Measured on real-world repositories with Crenox against the most popular alternatives.
 
 <details>
 <summary>Filesystem Scan Results (Standard Mode)</summary>
 
 | Repository | Tool | Execution Time | Peak RAM | Findings |
 |:---|:---|:---|:---|:---|
-| sample\_secrets | **Crenox** | **17 ms** | **10.3 MB** | **2** |
-| | Gitleaks v8.18.2 | 181 ms | 15.2 MB | 1 |
-| | TruffleHog v3.95.9 | 5.68 s | 210.9 MB | 2 |
-| truffleHogRegexes | **Crenox** | **25 ms** | **11.6 MB** | **3** |
-| | Gitleaks v8.18.2 | 125 ms | 15.4 MB | 1 |
-| | TruffleHog v3.95.9 | 6.62 s | 210.9 MB | 0 |
+| [sample_secrets](https://github.com/GitGuardian/sample_secrets) | **Crenox** | **27 ms** | **11.4 MB** | **3** |
+| | Gitleaks v8.18.2 | 133 ms | 17.1 MB | 1 |
+| | Betterleaks v1.6.1 | 190 ms | 29.6 MB | 2 |
+| [truffleHogRegexes](https://github.com/dxa4481/truffleHogRegexes) | **Crenox** | **38 ms** | **12.8 MB** | **0** |
+| | Gitleaks v8.18.2 | 160 ms | 14.5 MB | 1 |
+| | Betterleaks v1.6.1 | 259 ms | 30.4 MB | 1 |
+| [serverless-node-api-boilerplate](https://github.com/crenoxhq/serverless-node-api-boilerplate) | **Crenox** | **31 ms** | **12.8 MB** | **6** |
+| | Gitleaks v8.18.2 | 104 ms | 15.3 MB | 2 |
+| | Betterleaks v1.6.1 | 498 ms | 48.4 MB | 1 |
 
 </details>
 
@@ -132,42 +135,45 @@ Measured on real-world repositories with Crenox against the two most popular alt
 
 | Repository | Tool | Execution Time | Peak RAM | Findings |
 |:---|:---|:---|:---|:---|
-| sample\_secrets | **Crenox** | **33 ms** | **10.3 MB** | **5** |
-| | Gitleaks v8.18.2 | 159 ms | 17.9 MB | 5 |
-| | TruffleHog v3.95.9 | 5.98 s | 207.6 MB | 2 |
-| truffleHogRegexes | **Crenox** | **31 ms** | **10.4 MB** | **5** |
-| | Gitleaks v8.18.2 | 176 ms | 15.9 MB | 6 |
-| | TruffleHog v3.95.9 | 6.56 s | 207.6 MB | 0 |
+| [sample_secrets](https://github.com/GitGuardian/sample_secrets) | **Crenox** | **30 ms** | **11.6 MB** | **9** |
+| | Gitleaks v8.18.2 | 176 ms | 14.5 MB | 5 |
+| | Betterleaks v1.6.1 | 502 ms | 45.9 MB | 5 |
+| [truffleHogRegexes](https://github.com/dxa4481/truffleHogRegexes) | **Crenox** | **51 ms** | **12.0 MB** | **3** |
+| | Gitleaks v8.18.2 | 175 ms | 13.7 MB | 6 |
+| | Betterleaks v1.6.1 | 207 ms | 30.4 MB | 8 |
+| [serverless-node-api-boilerplate](https://github.com/crenoxhq/serverless-node-api-boilerplate) | **Crenox** | **37 ms** | **10.8 MB** | **6** |
+| | Gitleaks v8.18.2 | 144 ms | 13.9 MB | 2 |
+| | Betterleaks v1.6.1 | 583 ms | 45.8 MB | 1 |
 
 </details>
 
 **Summary:**
 
-| Metric | vs Gitleaks | vs TruffleHog |
+| Metric | vs Gitleaks | vs Betterleaks |
 |--------|-------------|---------------|
-| **Speed** | **5x to 10x faster** | **180x to 330x faster** |
-| **Memory** | **1.3x to 1.7x less RAM** | **18x to 20x less RAM** |
-| **Recall (Accuracy)** | Finds obfuscated & encoded secrets ignored by others | Superior noise filtering (Zero false positives) |
+| **Speed** | **3x to 5x faster** | **6x to 15x faster** |
+| **Memory** | **1.2x to 1.5x less RAM** | **2.5x to 4x less RAM** |
+| **Recall (Accuracy)** | Finds obfuscated & encoded secrets ignored by Gitleaks | Finds critical secrets missed by Betterleaks |
 
 ---
 
-## Why Crenox — Comparison (vs Gitleaks, TruffleHog, detect-secrets)
+## Why Crenox — Comparison (vs Gitleaks, Betterleaks)
 
-| Feature | Crenox | git-secrets | detect-secrets | TruffleHog |
-|---------|:--------:|:-----------:|:--------------:|:----------:|
-| Statically compiled, no runtime dependencies | + | — bash | — Python | — Python |
-| ARM / Android / Termux native | + | partial | — | — |
-| Aho-Corasick O(n) multi-pattern matching | + | — | — | — |
-| Shannon entropy analysis | + | — | + | + |
-| Context-aware false-positive suppression | + | — | partial | partial |
-| BIP-39 seed phrase detection | + | — | — | — |
-| Single-layer Base64 decoding | + | — | + | + |
-| Concurrent file scanning | + | — | — | — |
-| SARIF output (GitHub Code Scanning) | + | — | + | + |
-| JSON output | + | — | + | + |
-| Global hook installation | + | + | — | — |
-| Custom user-defined signatures | + | — | + | — |
-| OTA self-updating binary | + | — | — | — |
+| Feature | Crenox | Gitleaks | Betterleaks |
+|---------|:--------:|:-----------:|:--------------:|
+| Statically compiled, zero runtime dependencies | + | + | + |
+| ARM / Android / Termux native support | + | partial | partial |
+| Aho-Corasick O(n) multi-pattern matching | + | + | + |
+| Shannon entropy analysis | + | + | — |
+| Token efficiency (BPE tokenizer) | — | — | + |
+| Context-aware false-positive suppression | + | — | — |
+| BIP-39 seed phrase detection | + | — | — |
+| Single-layer Base64 decoding | + | + | + |
+| Concurrent file scanning | + | + | + |
+| SARIF & JSON output formatting | + | + | + |
+| Global hook installation | + | + | — |
+| Custom user-defined signatures | + | + | + |
+| OTA self-updating binary | + | — | — |
 
 ---
 

@@ -249,8 +249,7 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 		if strings.Contains(lowerToken, "mock") || strings.Contains(lowerToken, "fake") ||
 			strings.Contains(lowerToken, "placeholder") || strings.Contains(lowerToken, "dummy") ||
 			strings.Contains(lowerToken, "example") || strings.Contains(lowerToken, "test-token") ||
-			strings.Contains(lowerToken, "test_token") || strings.Contains(lowerToken, "fake-token") ||
-			strings.Contains(lowerToken, "fake_token") {
+			strings.Contains(lowerToken, "test_token") {
 			return SafeVariableName
 		}
 	}

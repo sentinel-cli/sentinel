@@ -109,7 +109,7 @@ func New(automaton *trie.Automaton, opts Options) *Scanner {
 	}
 }
 
-// isDuplicateMatch checks if a new Finding's token already exists in the matches slice.
+// isDuplicateMatch checks if a new Finding's token already exists in the matches slice on the same line.
 func (s *Scanner) isDuplicateMatch(matches []Finding, newMatch Finding) bool {
 	for _, m := range matches {
 		if m.FilePath == newMatch.FilePath && m.Line == newMatch.Line {
@@ -119,13 +119,6 @@ func (s *Scanner) isDuplicateMatch(matches []Finding, newMatch Finding) bool {
 			if strings.Contains(newMatch.Token, m.Token) || strings.Contains(m.Token, newMatch.Token) {
 				return true
 			}
-		}
-		if newMatch.DetectionTier == TierEntropy || m.DetectionTier == TierEntropy {
-			if strings.Contains(newMatch.Token, m.Token) || strings.Contains(m.Token, newMatch.Token) {
-				return true
-			}
-		} else if m.Token == newMatch.Token {
-			return true
 		}
 	}
 	return false
@@ -184,6 +177,12 @@ func isLogIndicator(line []byte) bool {
 				(line[i+1]|0x20) == 'u' &&
 				(line[i+2]|0x20) == 't' &&
 				(line[i+3]|0x20) == 'h' {
+				return true
+			}
+		} else if c == 'k' || c == 'K' {
+			if i+3 <= len(line) &&
+				(line[i+1]|0x20) == 'e' &&
+				(line[i+2]|0x20) == 'y' {
 				return true
 			}
 		}
@@ -257,6 +256,7 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 	// We don't need a global map anymore since we process line by line.
 	lineNum := 0
 	skipNextLine := false
+	hasPEMEnd := false
 	var prevLineTrim []byte // track the previous trimmed line for multiline macro context
 
 	leftover := []byte{}
@@ -312,6 +312,9 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 			}
 
 			lineTrim := bytes.TrimSpace(rawLine)
+			if bytes.HasPrefix(lineTrim, []byte("-----END ")) {
+				hasPEMEnd = true
+			}
 
 		// ── Speed: skip extremely long lines (data-URLs, minified JS, base64 blobs)
 		// Lines > 4096 bytes cannot realistically contain a typed secret token.
@@ -478,28 +481,40 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 						replaced := false
 						for idx, existing := range findings {
 							if existing.Line == newMatch.Line {
+								// Prioritize Pattern (TierTrie) over Entropy (TierEntropy) on the same line
+								if existing.DetectionTier == TierEntropy && newMatch.DetectionTier == TierTrie {
+									findings[idx] = newMatch
+									replaced = true
+									break
+								}
+								if existing.DetectionTier == TierTrie && newMatch.DetectionTier == TierEntropy {
+									replaced = true
+									break
+								}
+								// Prioritize specific rules over generic rules on the same line
+								existingIsGeneric := strings.HasPrefix(existing.SignatureID, "generic-")
+								newIsGeneric := strings.HasPrefix(newMatch.SignatureID, "generic-")
+								if existingIsGeneric && !newIsGeneric {
+									findings[idx] = newMatch
+									replaced = true
+									break
+								}
+								if !existingIsGeneric && newIsGeneric {
+									replaced = true
+									break
+								}
+								// Otherwise, prioritize higher severity
 								if severityWeight(newMatch.Severity) > severityWeight(existing.Severity) {
 									findings[idx] = newMatch
 									replaced = true
 									break
 								}
+								// If severities are equal, prioritize the shorter token (more precise)
 								if severityWeight(newMatch.Severity) == severityWeight(existing.Severity) && len(newMatch.Token) < len(existing.Token) {
 									findings[idx] = newMatch
 									replaced = true
 									break
 								}
-								replaced = true
-								break
-							}
-							if existing.Token == newMatch.Token && strings.HasPrefix(existing.SignatureID, "generic-") && !strings.HasPrefix(newMatch.SignatureID, "generic-") {
-								findings[idx].SignatureID = newMatch.SignatureID
-								findings[idx].Description = newMatch.Description
-								findings[idx].Severity = newMatch.Severity
-								replaced = true
-								break
-							}
-							if (existing.DetectionTier == TierEntropy || strings.HasPrefix(existing.SignatureID, "high-entropy-")) && newMatch.DetectionTier == TierTrie {
-								findings[idx] = newMatch
 								replaced = true
 								break
 							}
@@ -872,6 +887,18 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 		}
 	}
 
+	// ── Filter out PEM private keys that do not have a matching END footer ──
+	if len(findings) > 0 {
+		filtered := findings[:0]
+		for _, f := range findings {
+			if (strings.Contains(f.SignatureID, "private-key") || strings.Contains(f.SignatureID, "pem-")) && !hasPEMEnd {
+				continue
+			}
+			filtered = append(filtered, f)
+		}
+		findings = filtered
+	}
+
 	// ── Apply Allowlist Patterns ────────────────────────────────────────────
 	if len(s.opts.AllowlistPatterns) > 0 {
 		filtered := findings[:0]
@@ -1216,7 +1243,17 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int, isSourc
 
 	var after []byte
 	if sig.IsAssignmentOrKeyword {
-		after = bytes.TrimSpace(val[offset+1:])
+		after = val[offset+1:]
+		i := 0
+		for i < len(after) {
+			b := after[i]
+			if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_' {
+				i++
+			} else {
+				break
+			}
+		}
+		after = bytes.TrimSpace(after[i:])
 	} else {
 		after = bytes.TrimSpace(val[start:])
 	}
@@ -1301,7 +1338,7 @@ func extractTokenFromOffset(val []byte, sig *trie.Signature, offset int, isSourc
 	endIdx := -1
 	for i, b := range after {
 		isTerm := b == ' ' || b == '\t' || b == '\n' || b == '\r'
-		if !strings.Contains(sig.ID, "-dsn") && !strings.Contains(sig.ID, "url-basic-auth") {
+		if !strings.Contains(sig.ID, "-dsn") && !strings.Contains(sig.ID, "url-basic-auth") && !strings.Contains(sig.ID, "webhook") {
 			if b == '@' || b == '/' || b == '?' || b == '&' {
 				isTerm = true
 			}
@@ -1387,7 +1424,7 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 		strings.HasPrefix(token, "urn:") || strings.HasPrefix(token, "vless://") ||
 		strings.HasPrefix(token, "vmess://") || strings.HasPrefix(token, "ss://") ||
 		strings.HasPrefix(token, "trojan://") || strings.HasPrefix(token, "shadowsocks://") {
-		if !strings.Contains(sigID, "-dsn") && !strings.Contains(sigID, "url-basic-auth") {
+		if !strings.Contains(sigID, "-dsn") && !strings.Contains(sigID, "url-basic-auth") && !strings.Contains(sigID, "webhook") {
 			return false
 		}
 	}
@@ -1397,7 +1434,8 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 		return false
 	}
 	minAllowed := minLen / 2
-	if sigID == "generic-password-key" || sigID == "generic-secret-key" {
+	if sigID == "generic-password-key" || sigID == "generic-secret-key" ||
+		strings.HasPrefix(sigID, "generic-pass-") || strings.HasPrefix(sigID, "generic-pwd-") {
 		minAllowed = 6
 	}
 	if len(token) < minAllowed {
@@ -1419,7 +1457,7 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 	// 3. Stricter checks for generic rules to eliminate variable name/type/expression leaks
 	if strings.HasPrefix(sigID, "generic-") {
 		// Reject tokens with logic operators, colons, or spaces
-		if strings.ContainsAny(token, "$[]*;|&+=\"!? :") || strings.Contains(token, "->") {
+		if strings.ContainsAny(token, "$[]*;|&\"!? :") || strings.Contains(token, "->") {
 			return false
 		}
 		// If it's a property path (contains dot) and it's from a generic rule, reject it

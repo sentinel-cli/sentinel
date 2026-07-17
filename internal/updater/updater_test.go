@@ -1,6 +1,14 @@
 package updater
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/crenoxhq/crenox/v2/pkg/version"
+)
 
 func TestIsNewer(t *testing.T) {
 	cases := []struct {
@@ -23,5 +31,45 @@ func TestIsNewer(t *testing.T) {
 		if got := isNewer(tc.latest, tc.current); got != tc.want {
 			t.Errorf("isNewer(%q, %q) = %v; want %v", tc.latest, tc.current, got, tc.want)
 		}
+	}
+}
+
+func TestCheckForUpdateAsync(t *testing.T) {
+	// Set custom version to test update notification
+	origVersion := version.Version
+	version.Version = "1.0.0"
+	defer func() { version.Version = origVersion }()
+
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	// Create a valid cache file with a timestamp from 1 hour ago
+	cacheDir := filepath.Join(tempDir, ".config", "crenox")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		t.Fatalf("failed to create cache dir: %v", err)
+	}
+
+	cachePath := filepath.Join(cacheDir, "last_check.json")
+	cache := cacheData{
+		LastCheck:     time.Now().Add(-1 * time.Hour),
+		LatestVersion: "2.0.0", // newer than 1.0.0
+	}
+	data, err := json.Marshal(cache)
+	if err != nil {
+		t.Fatalf("failed to marshal cache: %v", err)
+	}
+	if err := os.WriteFile(cachePath, data, 0644); err != nil {
+		t.Fatalf("failed to write cache file: %v", err)
+	}
+
+	ch := CheckForUpdateAsync()
+	select {
+	case msg := <-ch:
+		expected := "Notice: Crenox update (2.0.0) is available! Run 'crenox update' to upgrade."
+		if msg != expected {
+			t.Errorf("expected msg %q, got %q", expected, msg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("timeout waiting for update check result")
 	}
 }

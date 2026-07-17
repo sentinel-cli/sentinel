@@ -110,11 +110,8 @@ var BuiltinSignatures = []Signature{
 	{ID: "dsa-private-key", Description: "DSA Private Key (PEM)", Prefix: "-----BEGIN DSA PRIVATE KEY-----", Severity: "CRITICAL"},
 
 	// ── Database Credentials ─────────────────────────────────────────────────
-	{ID: "postgres-dsn", Description: "PostgreSQL DSN with credentials", Prefix: "postgresql://", Severity: "HIGH"},
-	{ID: "mysql-dsn", Description: "MySQL DSN with credentials", Prefix: "mysql://", Severity: "HIGH"},
-	{ID: "mongodb-dsn", Description: "MongoDB connection string", Prefix: "mongodb+srv://", Severity: "HIGH"},
-	{ID: "mongodb-dsn-plain", Description: "MongoDB connection string (plain)", Prefix: "mongodb://", Severity: "HIGH"},
-	{ID: "redis-dsn", Description: "Redis connection string with password", Prefix: "redis://:@", Severity: "MEDIUM"},
+	{ID: "mongodb-dsn", Description: "MongoDB connection string", Prefix: "mongodb+srv://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^mongodb\+srv://[^:\s/?#]+:[^@\s/?#]+@`)},
+	{ID: "mongodb-dsn-plain", Description: "MongoDB connection string (plain)", Prefix: "mongodb://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^mongodb://[^:\s/?#]+:[^@\s/?#]+@`)},
 
 	// ── HashiCorp Vault ───────────────────────────────────────────────────────
 	{ID: "vault-token", Description: "HashiCorp Vault Token", Prefix: "hvs.", Severity: "CRITICAL"},
@@ -150,6 +147,10 @@ var BuiltinSignatures = []Signature{
 
 	// ── Generic indicators ────────────────────────────────────────────────────
 	{ID: "generic-password-key", Description: "Hardcoded password assignment", Prefix: "password", Severity: "MEDIUM"},
+	{ID: "generic-pass-key", Description: "Hardcoded password assignment", Prefix: "pass", Severity: "MEDIUM"},
+	{ID: "generic-pwd-key", Description: "Hardcoded password assignment", Prefix: "pwd", Severity: "MEDIUM"},
+	{ID: "generic-pass-key-snake", Description: "Hardcoded password assignment (snake_case suffix)", Prefix: "_pass", Severity: "MEDIUM"},
+	{ID: "generic-pwd-key-snake", Description: "Hardcoded password assignment (snake_case suffix)", Prefix: "_pwd", Severity: "MEDIUM"},
 	{ID: "generic-secret-key", Description: "Hardcoded secret assignment", Prefix: "secret", Severity: "MEDIUM"},
 	{ID: "generic-api-key", Description: "Hardcoded api_key assignment", Prefix: "api_key", Severity: "MEDIUM"},
 	{ID: "generic-token-key", Description: "Hardcoded token assignment", Prefix: "token", Severity: "MEDIUM"},
@@ -204,13 +205,22 @@ var BuiltinSignatures = []Signature{
 	{ID: "square-access-token", Description: "Square Access Token", Prefix: "sq0atp-", Severity: "CRITICAL", Validator: regexp.MustCompile(`^sq0atp-[A-Za-z0-9-_]{22}$`)},
 	{ID: "putty-private-key", Description: "PuTTY Private Key", Prefix: "PuTTY-User-Key-File-", Severity: "CRITICAL"},
 	{ID: "postgres-dsn", Description: "Postgres Connection String with Password", Prefix: "postgres://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^postgres(?:ql)?://[^:\s/?#]+:[^@\s/?#]+@`)},
-	{ID: "postgresql-dsn", Description: "Postgres Connection String with Password", Prefix: "postgresql://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^postgres(?:ql)?://[^:\s/?#]+:[^@\s/?#]+@`)},
+	{ID: "postgres-dsn", Description: "Postgres Connection String with Password", Prefix: "postgresql://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^postgres(?:ql)?://[^:\s/?#]+:[^@\s/?#]+@`)},
 	{ID: "redis-dsn", Description: "Redis Connection String with Password", Prefix: "redis://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^redis://[^:\s/?#]*:[^@\s/?#]+@`)},
 	{ID: "mysql-dsn", Description: "MySQL Connection String with Password", Prefix: "mysql://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^mysql://[^:\s/?#]+:[^@\s/?#]+@`)},
 	{ID: "amqp-dsn", Description: "AMQP Connection String with Password", Prefix: "amqp://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^amqps?://[^:\s/?#]+:[^@\s/?#]+@`)},
 	{ID: "amqps-dsn", Description: "AMQP Connection String with Password", Prefix: "amqps://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^amqps?://[^:\s/?#]+:[^@\s/?#]+@`)},
 	{ID: "url-basic-auth", Description: "URL with Basic Auth Credentials", Prefix: "https://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^https?://[^:\s/?#]+:[^@\s/?#]+@[a-zA-Z0-9.-]+`)},
 	{ID: "url-basic-auth-http", Description: "URL with Basic Auth Credentials", Prefix: "http://", Severity: "HIGH", Validator: regexp.MustCompile(`(?i)^https?://[^:\s/?#]+:[^@\s/?#]+@[a-zA-Z0-9.-]+`)},
+
+	// ── Webhooks & Client IDs ─────────────────────────────────────────────────
+	{ID: "slack-webhook", Description: "Slack Incoming Webhook", Prefix: "https://hooks.slack.com/services/", Severity: "CRITICAL", Validator: regexp.MustCompile(`(?i)^https://hooks\.slack\.com/services/T[a-zA-Z0-9_]{8,11}/B[a-zA-Z0-9_]{8,11}/[a-zA-Z0-9_]{24}$`)},
+	{ID: "discord-webhook", Description: "Discord Webhook URL", Prefix: "https://discord.com/api/webhooks/", Severity: "CRITICAL", Validator: regexp.MustCompile(`^https://discord\.com/api/webhooks/[0-9]{18,20}/[A-Za-z0-9_-]{60,80}$`)},
+	{ID: "github-client-id", Description: "GitHub Client ID", Prefix: "Iv1.", Severity: "HIGH", Validator: regexp.MustCompile(`^Iv1\.[0-9a-fA-F]{16}$`)},
+
+	// ── AWS Secret Key Variable Assignments ───────────────────────────────────
+	{ID: "aws-secret-key-var", Description: "AWS Secret Access Key assignment", Prefix: "aws_secret", Severity: "CRITICAL"},
+	{ID: "aws-secret-key-var-2", Description: "AWS Secret Access Key assignment", Prefix: "aws_key", Severity: "CRITICAL"},
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -349,14 +359,14 @@ func toLower(b byte) byte {
 
 // isAssignmentOrKeyword checks case-insensitively if prefix contains '=' or ':',
 // or matches one of the WordPress custom key/salt definitions,
-// or is one of the generic keywords.
 func isAssignmentOrKeyword(s string) bool {
 	upper := strings.ToUpper(s)
-	if upper == "PASSWORD" || upper == "SECRET" || upper == "API_KEY" || upper == "TOKEN" || upper == "AUTH" {
+	if upper == "PASSWORD" || upper == "SECRET" || upper == "API_KEY" || upper == "TOKEN" || upper == "AUTH" || upper == "PASS" || upper == "PWD" {
 		return true
 	}
 	if strings.Contains(upper, "PASSWORD") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "TOKEN") ||
-		strings.Contains(upper, "AUTH") || strings.Contains(upper, "HEROKU") || strings.Contains(upper, "GITHUB") {
+		strings.Contains(upper, "AUTH") || strings.Contains(upper, "HEROKU") || strings.Contains(upper, "GITHUB") ||
+		strings.Contains(upper, "PASS") || strings.Contains(upper, "PWD") {
 		return true
 	}
 	for i := 0; i < len(s); i++ {
