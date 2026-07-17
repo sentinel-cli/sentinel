@@ -37,6 +37,17 @@ This command performs the following actions:
 			goos := runtime.GOOS
 			goarch := runtime.GOARCH
 
+			// On Android/Termux, the binary may be compiled with GOOS=linux
+			// but the device is actually Android. Detect this by checking
+			// for Termux-specific paths or the ANDROID_ROOT env variable.
+			if goos == "linux" {
+				if _, err := os.Stat("/data/data/com.termux"); err == nil {
+					goos = "android"
+				} else if os.Getenv("ANDROID_ROOT") != "" || os.Getenv("TERMUX_VERSION") != "" {
+					goos = "android"
+				}
+			}
+
 			exePath, err := os.Executable()
 			if err != nil {
 				return fmt.Errorf("could not determine executable path: %w", err)
