@@ -38,7 +38,7 @@
       "description": "A zero-dependency Git pre-commit secret detector written in Go.",
       "operatingSystem": "Linux, macOS, Windows, Android (Termux)",
       "applicationCategory": "DeveloperApplication",
-      "softwareVersion": "2.1.1",
+      "softwareVersion": "2.1.2",
       "codeRepository": "https://github.com/crenoxhq/crenox",
       "license": "https://github.com/crenoxhq/crenox/blob/main/LICENSE",
       "offers": {
@@ -59,7 +59,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="style.css?v=2.1.1">
+    <link rel="stylesheet" href="style.css?v=2.1.2">
     <!-- Asciinema Player CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.css">
 </head>
@@ -171,43 +171,43 @@
             <div class="eyebrow">
                 03 / Performance
             </div>
-            <h2>Crenox vs Gitleaks vs TruffleHog: Workstation Comparison</h2>
-            <p>To evaluate Crenox's performance, we run comparative workstation scans against <code>gitleaks</code> and <code>trufflehog</code>. Measurements are collected locally on an octa-core ARM64 workstation, tracking total execution latency and peak resident set size (RSS).</p>
+            <h2>Crenox vs Gitleaks vs Betterleaks: Cloud Runner Comparison</h2>
+            <p>Performance is measured on real-world public repositories against the most popular alternatives, running on a standard <strong>GitHub Actions Ubuntu cloud runner</strong> — the same infrastructure used in real-world CI/CD pipelines.</p>
 
             <div class="spec-table-wrapper">
                 <table class="spec-table font-mono">
                     <thead>
                         <tr>
                             <th>Audited Metric</th>
-                            <th>Crenox (<span class="latest-version">v2.1.1</span>)</th>
+                            <th>Crenox (<span class="latest-version">v2.1.2</span>)</th>
                             <th>Gitleaks (v8.18.2)</th>
-                            <th>TruffleHog (v3.95.9)</th>
+                            <th>Betterleaks (v1.6.1)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="spec-label">Execution Footprint (Binary)</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary);">7.2 MB</td>
-                            <td>6.4 MB</td>
-                            <td>29.0 MB</td>
+                            <td class="spec-label">Peak RAM — Filesystem Scan</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary);">14.8 – 17.4 MB</td>
+                            <td>21.6 – 23.4 MB</td>
+                            <td>36.8 – 54.9 MB</td>
                         </tr>
                         <tr>
-                            <td class="spec-label">Workstation RAM (Peak RSS)</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary);">10.3 - 11.6 MB</td>
-                            <td>15.1 - 17.9 MB</td>
-                            <td>207.6 - 210.9 MB</td>
+                            <td class="spec-label">Filesystem Scan Time (Avg)</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary);">5.2 – 7.5 ms</td>
+                            <td>24.2 – 39.7 ms</td>
+                            <td>51.7 – 176.8 ms</td>
                         </tr>
                         <tr>
-                            <td class="spec-label">Staged Filesystem Scan</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary);">17 - 25 ms</td>
-                            <td>124 - 181 ms</td>
-                            <td>5.68 - 6.61 s</td>
+                            <td class="spec-label">Git History Scan Time (Avg)</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary);">7.9 – 11.8 ms</td>
+                            <td>26.6 – 45.0 ms</td>
+                            <td>84.3 – 196.6 ms</td>
                         </tr>
                         <tr>
-                            <td class="spec-label">Historical Audit (Git Log)</td>
-                            <td style="font-weight: 600; color: var(--color-text-primary);">30 - 33 ms</td>
-                            <td>158 - 176 ms</td>
-                            <td>5.98 - 6.55 s</td>
+                            <td class="spec-label">History Recall (sample_secrets)</td>
+                            <td style="font-weight: 600; color: var(--color-text-primary);">9 / 9 (100%)</td>
+                            <td>5 / 9 (56%)</td>
+                            <td>5 / 9 (56%)</td>
                         </tr>
                         <tr>
                             <td class="spec-label">Dependency Overhead</td>
@@ -218,6 +218,9 @@
                     </tbody>
                 </table>
             </div>
+            <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-top: 1rem;">
+                Transparent &amp; Auditable — Results generated by an <a href="https://github.com/crenoxhq/serverless-node-api-boilerplate/blob/main/scripts/run_benchmark.py" target="_blank" style="color: inherit; text-decoration: underline;">open-source benchmark script</a>. Methodology and workflow are publicly visible. <a href="https://github.com/crenoxhq/serverless-node-api-boilerplate/actions/workflows/benchmark.yml" target="_blank" style="color: inherit; text-decoration: underline;">View the latest run →</a>
+            </p>
         </section>
 
         <!-- Chapter 4: Installation -->
@@ -339,6 +342,12 @@ allowlist_patterns:
             
             <div style="margin: 2rem 0; border-top: 1px solid var(--color-border);">
                 <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
+                    <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">JULY 17, 2026</p>
+                    <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-en); font-size: 1.5rem; font-weight: 400;"><a href="https://github.com/crenoxhq/crenox/blob/dev/CHANGELOG.md" target="_blank" style="color: inherit; text-decoration: none;">v2.1.2: New Signatures, Deduplication Overhaul & Cloud Benchmark</a></h4>
+                    <p style="font-size: 0.9rem; margin-bottom: 0; color: var(--color-text-muted);">Version 2.1.2 adds 10 new built-in signatures (Slack/Discord Webhooks, GitHub Client IDs, MongoDB/Postgres DSNs, AWS Secret Key variables), hardens the 4-level finding deduplication priority chain (Pattern &gt; Specific &gt; Severity &gt; Token length), validates PEM keys against footer presence to eliminate false positives, and introduces an auditable GitHub Actions cloud benchmark comparing Crenox against Gitleaks and Betterleaks.</p>
+                </div>
+
+                <div style="padding: 1.5rem 0; border-bottom: 1px solid var(--color-border);">
                     <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;">JULY 13, 2026</p>
                     <h4 style="margin: 0 0 0.5rem 0; font-family: var(--font-serif-en); font-size: 1.5rem; font-weight: 400;"><a href="https://github.com/crenoxhq/crenox" target="_blank" style="color: inherit; text-decoration: none;">Memory Recycling: sync.Pool Bounding on Multi-Gigabyte Scans</a></h4>
                     <p style="font-size: 0.9rem; margin-bottom: 0; color: var(--color-text-muted);">How version 2.0.7 introduces an 8 MB chunk-streaming ScanReader coupled with a global sync.Pool buffer cache. This limits absolute memory footprint to concurrent CPU worker counts, preventing heap allocation buildup and dropping peak RSS by up to 13x.</p>
@@ -420,11 +429,11 @@ allowlist_patterns:
     </footer>
 
     <!-- JavaScript -->
-    <script src="app.js?v=2.1.1"></script>
+    <script src="app.js?v=2.1.2"></script>
     <!-- Asciinema Player JS -->
     <script src="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.min.js"></script>
     <script>
-        AsciinemaPlayer.create("demo.cast?v=2.1.1", document.getElementById("terminal-demo"), {
+        AsciinemaPlayer.create("demo.cast?v=2.1.2", document.getElementById("terminal-demo"), {
             cols: 110,
             rows: 24,
             autoPlay: true,
