@@ -260,6 +260,8 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 	var prevLineTrim []byte // track the previous trimmed line for multiline macro context
 
 	leftover := []byte{}
+	var compBuf [512]byte
+	mergeBuf := make([]byte, len(buf)*2)
 
 	for {
 		n, err := r.Read(buf)
@@ -272,7 +274,11 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 
 		var chunk []byte
 		if len(leftover) > 0 {
-			chunk = make([]byte, len(leftover)+n)
+			needed := len(leftover) + n
+			if needed > len(mergeBuf) {
+				mergeBuf = make([]byte, needed*2)
+			}
+			chunk = mergeBuf[:needed]
 			copy(chunk, leftover)
 			copy(chunk[len(leftover):], buf[:n])
 			leftover = leftover[:0]
@@ -383,7 +389,6 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 		var compVal []byte
 		var cLen int
 		if vLen >= 16 && vLen <= 400 {
-			var compBuf [512]byte
 			for _, b := range targetStr {
 				if b != ' ' && b != '+' && b != '.' && b != '"' && b != '\'' && b != '`' {
 					if cLen < len(compBuf) {
