@@ -803,11 +803,26 @@ func isAllAlpha(s string) bool {
 
 // cleanIdentifier returns a lowercased version of s containing only letters and digits.
 func cleanIdentifier(s string) string {
+	// Fast path: if the string is already lowercase alphanumeric, return it directly
+	isClean := true
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+			isClean = false
+			break
+		}
+	}
+	if isClean {
+		return s
+	}
+
 	s = strings.ToLower(s)
 	var sb strings.Builder
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			sb.WriteRune(r)
+	sb.Grow(len(s)) // Pre-allocate buffer to prevent intermediate allocations
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			sb.WriteByte(c) // WriteByte is faster than WriteRune (ASCII-only)
 		}
 	}
 	return sb.String()

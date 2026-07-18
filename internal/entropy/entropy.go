@@ -108,52 +108,101 @@ func Analyze(content []byte, threshold float64, minLen int) []EntropyHit {
 					continue
 				}
 
-				// Extract and score Base64-alphabet tokens.
-				extractTokens(line, base64Set, minLen, func(tok []byte) {
-					if isJavaConstant(tok) || isAllSameChar(tok) {
-						return
+				// Inline Base64 token extraction to avoid closure heap allocation
+				tokStart := -1
+				for idx, b := range line {
+					if base64Set[b] {
+						if tokStart == -1 {
+							tokStart = idx
+						}
+					} else {
+						if tokStart != -1 {
+							if idx-tokStart >= minLen {
+								tok := line[tokStart:idx]
+								if !isJavaConstant(tok) && !isAllSameChar(tok) && !isHexLikeBytes(tok) {
+									e := Shannon(tok)
+									if e >= threshold {
+										hits = append(hits, EntropyHit{
+											Token:       string(tok),
+											Entropy:     e,
+											Line:        lineNum,
+											LineContent: truncateBytes(line, 512),
+											Kind:        "base64",
+										})
+									}
+								}
+							}
+							tokStart = -1
+						}
 					}
-					// If the token is entirely hex, let extractHexTokens handle it with the scaled threshold.
-					if isHexLikeBytes(tok) {
-						return
+				}
+				if tokStart != -1 && len(line)-tokStart >= minLen {
+					tok := line[tokStart:]
+					if !isJavaConstant(tok) && !isAllSameChar(tok) && !isHexLikeBytes(tok) {
+						e := Shannon(tok)
+						if e >= threshold {
+							hits = append(hits, EntropyHit{
+								Token:       string(tok),
+								Entropy:     e,
+								Line:        lineNum,
+								LineContent: truncateBytes(line, 512),
+								Kind:        "base64",
+							})
+						}
 					}
-					e := Shannon(tok)
-					if e >= threshold {
-						hits = append(hits, EntropyHit{
-							Token:       string(tok),
-							Entropy:     e,
-							Line:        lineNum,
-							LineContent: truncateBytes(line, 512),
-							Kind:        "base64",
-						})
-					}
-				})
+				}
 
-				extractHexTokens(line, minLen, func(tok []byte) {
-					// Reject odd-length hex only for SHORT tokens (< 32 chars).
-					// Long hex strings (≥ 32 chars) like Rails secret_key_base or
-					// GitHub oauth tokens are valid secrets regardless of parity.
-					if len(tok)%2 != 0 && len(tok) < 32 {
-						return
+				// Inline Hex token extraction to avoid closure heap allocation
+				tokStart = -1
+				for idx, b := range line {
+					if hexSet[b] {
+						if tokStart == -1 {
+							tokStart = idx
+						}
+					} else {
+						if tokStart != -1 {
+							if idx-tokStart >= minLen {
+								tok := line[tokStart:idx]
+								if len(tok)%2 == 0 || len(tok) >= 32 {
+									e := Shannon(tok)
+									hexThreshold := threshold * (4.0 / 6.0)
+									if hexThreshold < 3.0 {
+										hexThreshold = 3.0
+									}
+									if e >= hexThreshold {
+										hits = append(hits, EntropyHit{
+											Token:       string(tok),
+											Entropy:     e,
+											Line:        lineNum,
+											LineContent: truncateBytes(line, 512),
+											Kind:        "hex",
+										})
+									}
+								}
+							}
+							tokStart = -1
+						}
 					}
-					e := Shannon(tok)
-					// Hex has max entropy 4.0 (log2(16)), whereas Base64 has max entropy 6.0.
-					// Scale the provided threshold proportionally for hex tokens.
-					hexThreshold := threshold * (4.0 / 6.0)
-					// But never drop below a sane minimum (e.g., 3.0) to avoid false positives.
-					if hexThreshold < 3.0 {
-						hexThreshold = 3.0
+				}
+				if tokStart != -1 && len(line)-tokStart >= minLen {
+					tok := line[tokStart:]
+					if len(tok)%2 == 0 || len(tok) >= 32 {
+						e := Shannon(tok)
+						hexThreshold := threshold * (4.0 / 6.0)
+						if hexThreshold < 3.0 {
+							hexThreshold = 3.0
+						}
+						if e >= hexThreshold {
+							hits = append(hits, EntropyHit{
+								Token:       string(tok),
+								Entropy:     e,
+								Line:        lineNum,
+								LineContent: truncateBytes(line, 512),
+								Kind:        "hex",
+							})
+						}
 					}
-					if e >= hexThreshold {
-						hits = append(hits, EntropyHit{
-							Token:       string(tok),
-							Entropy:     e,
-							Line:        lineNum,
-							LineContent: truncateBytes(line, 512),
-							Kind:        "hex",
-						})
-					}
-				})
+				}
 			}
 			if i < len(content) {
 				lineNum++
@@ -192,50 +241,7 @@ func containsURL(line []byte) bool {
 	return false
 }
 
-// extractTokens splits a line by the given character set and returns all
-// contiguous runs that are entirely within that character set and meet minLen.
-func extractTokens(line []byte, charSet [256]bool, minLen int, cb func([]byte)) {
-	start := -1
-	for i, b := range line {
-		if charSet[b] {
-			if start == -1 {
-				start = i
-			}
-		} else {
-			if start != -1 {
-				if i-start >= minLen {
-					cb(line[start:i])
-				}
-				start = -1
-			}
-		}
-	}
-	if start != -1 && len(line)-start >= minLen {
-		cb(line[start:])
-	}
-}
 
-// extractHexTokens performs the same extraction specifically for hexadecimal strings.
-func extractHexTokens(line []byte, minLen int, cb func([]byte)) {
-	start := -1
-	for i, b := range line {
-		if hexSet[b] {
-			if start == -1 {
-				start = i
-			}
-		} else {
-			if start != -1 {
-				if i-start >= minLen {
-					cb(line[start:i])
-				}
-				start = -1
-			}
-		}
-	}
-	if start != -1 && len(line)-start >= minLen {
-		cb(line[start:])
-	}
-}
 
 // isAllSameChar returns true if every character in s is identical.  Such
 // strings (e.g. "AAAAAAAAAA") have zero entropy and are safe to skip.

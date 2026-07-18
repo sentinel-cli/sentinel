@@ -39,10 +39,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fast-Path Gating for `extractRHS`:** Added a `bytes.IndexByte(line, '=')` pre-check before the character-by-character quote-aware scan loop. Lines with no `=` character (the majority of source code lines) are now rejected in a single SIMD-accelerated call instead of a full loop scan. Reduced `extractRHS` CPU share from **10.29% → 2.82%**.
 - **Fast-Path Gating for `allQuotedLiterals`:** Added a `bytes.ContainsAny(s, "\"`'")` pre-check before the quote-parsing loop. Lines with no quote characters are skipped immediately. Reduced `allQuotedLiterals` CPU share from **9.57% → 1.54%**.
 - **`isLogIndicator` Vectorised Rewrite:** Replaced the 44-line manual character-by-character scan for `bearer`/`Authorization` with direct `bytes.Contains` calls, which compile to SIMD (AVX2) instructions on amd64. Reduced function CPU share from **12.8% → 0.26%**.
+- **Dynamic Bounded Channel Streaming:** Refactored directory scanning (`scan.go`) to stream job targets dynamically using a bounded channel buffer (size 1024) instead of collecting all file paths in a single large slice, reducing memory footprint by **22.6%** on 70 MB scans.
+- **Early Directory Pruning:** Integrated glob-based exclude path checks directly inside the `WalkDir` filesystem walk function. Excluded folders (e.g. `node_modules`, `vendor`, `build`) are skipped early, avoiding thousands of redundant `os.Stat` and directory read system calls.
+- **Zero-Allocation Inlined Token Extraction:** Inlined the Base64 and Hex token extraction loops inside `Analyze` (`entropy.go`) to eliminate heap-escaping closures. This prevents allocating over **125 MB** of heap garbage on large scans.
+- **Zero-Allocation `fastRelPath` Helper:** Replaced `filepath.Rel` with a fast string-slice slice relative path computation function, avoiding directory cleanup overhead and speeding up small recursive scans.
+- **Pre-allocated strings.Builder in `cleanIdentifier`:** Implemented a fast-path that returns the identifier string directly with zero allocations if it is already clean. For other strings, pre-allocates the builder capacity using `sb.Grow(len(s))` to eliminate `strings.(*Builder).grow` heap allocations.
 
 ### Changed
 - **`isLogIndicator` Simplified Implementation:** Replaced the 44-line manual byte-scan loop with 6 direct `bytes.Contains` calls. Behaviour is identical; implementation is now significantly more readable and maintainable.
 - **Signature Count Updated:** Expanded from 92 to 100 built-in signatures following the addition of 8 new provider rules.
+- **Removed Worker GC Pause:** Removed the synchronous `debug.FreeOSMemory()` call from the scanner worker loop, preventing runtime worker freezes on small repository scans.
+
 
 ## [2.1.2] - 2026-07-17
 

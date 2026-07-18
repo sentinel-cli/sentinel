@@ -272,61 +272,20 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 			filePath string
 			scanRoot string
 		}
-		var targets []scanJob
-		for _, p := range paths {
-			info, err := os.Stat(p)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "crenox: the path %q does not exist or is inaccessible\n", p)
-				continue
-			}
-			absP, err := filepath.Abs(p)
-			if err != nil {
-				absP = p
-			}
-			if info.IsDir() {
-				if recursive {
-					_ = filepath.WalkDir(absP, func(path string, d fs.DirEntry, err error) error {
-						if err != nil {
-							return nil
-						}
-						if d.IsDir() {
-							name := d.Name()
-							if name == ".git" || name == "build" || name == "node_modules" {
-								return fs.SkipDir
-							}
-							return nil
-						}
-						targets = append(targets, scanJob{filePath: path, scanRoot: absP})
-						return nil
-					})
-				} else {
-					entries, _ := os.ReadDir(absP)
-					for _, e := range entries {
-						if !e.IsDir() {
-							targets = append(targets, scanJob{filePath: filepath.Join(absP, e.Name()), scanRoot: absP})
-						}
-					}
-				}
-			} else {
-				targets = append(targets, scanJob{filePath: absP, scanRoot: filepath.Dir(absP)})
-			}
-		}
 
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 
-		// Limit concurrency to NumCPU to prevent thrashing
 		numWorkers := runtime.NumCPU()
 		if numWorkers < 4 {
 			numWorkers = 4
 		}
 
-		jobs := make(chan scanJob, len(targets))
-		for _, t := range targets {
-			jobs <- t
-		}
-		close(jobs)
+		// Buffer of 1024 keeps RAM footprint low on large repositories
+		// by not queuing too many files in memory at once.
+		jobs := make(chan scanJob, 1024)
 
+		// Start concurrent workers
 		for i := 0; i < numWorkers; i++ {
 			wg.Add(1)
 			go func() {
@@ -341,10 +300,7 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 							continue
 						}
 					}
-					displayPath, err := filepath.Rel(job.scanRoot, filePath)
-					if err != nil || displayPath == "" {
-						displayPath = filePath
-					}
+					displayPath := fastRelPath(job.scanRoot, filePath)
 
 					if scanner.HasExcludedExtension(displayPath, cfg.ExcludeExtensions) {
 						continue
@@ -385,12 +341,7 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 
 					mu.Lock()
 					scannedCount++
-					shouldGC := scannedCount%500 == 0
 					mu.Unlock()
-
-					if shouldGC {
-						debug.FreeOSMemory()
-					}
 
 					findings := sec.ScanReader(displayPath, file)
 					file.Close()
@@ -407,6 +358,57 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 				}
 			}()
 		}
+
+		// Stream files to workers on the fly to avoid allocating a huge slice of all files in memory.
+		// Excluded directories are pruned early during the WalkDir to avoid unnecessary system calls.
+		go func() {
+			defer close(jobs)
+			for _, p := range paths {
+				info, err := os.Stat(p)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "crenox: the path %q does not exist or is inaccessible\n", p)
+					continue
+				}
+				absP, err := filepath.Abs(p)
+				if err != nil {
+					absP = p
+				}
+				if info.IsDir() {
+					if recursive {
+						_ = filepath.WalkDir(absP, func(path string, d fs.DirEntry, err error) error {
+							if err != nil {
+								return nil
+							}
+							if d.IsDir() {
+								name := d.Name()
+								if name == ".git" {
+									return fs.SkipDir
+								}
+								rel := fastRelPath(absP, path)
+								if rel != "." && rel != "" {
+									if scanner.MatchesExcludePath(rel, cfg.ExcludePaths) {
+										return fs.SkipDir
+									}
+								}
+								return nil
+							}
+							jobs <- scanJob{filePath: path, scanRoot: absP}
+							return nil
+						})
+					} else {
+						entries, _ := os.ReadDir(absP)
+						for _, e := range entries {
+							if !e.IsDir() {
+								jobs <- scanJob{filePath: filepath.Join(absP, e.Name()), scanRoot: absP}
+							}
+						}
+					}
+				} else {
+					jobs <- scanJob{filePath: absP, scanRoot: filepath.Dir(absP)}
+				}
+			}
+		}()
+
 		wg.Wait()
 	}
 
@@ -438,4 +440,15 @@ func runAdHocScan(paths []string, configPath, format string, recursive, verbose,
 	}
 	os.Exit(1)
 	return nil
+}
+
+func fastRelPath(root, path string) string {
+	if len(path) > len(root) {
+		rel := path[len(root):]
+		if len(rel) > 0 && (rel[0] == '/' || rel[0] == '\\') {
+			return rel[1:]
+		}
+		return rel
+	}
+	return path
 }

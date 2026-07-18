@@ -192,6 +192,8 @@ Measured on real-world repositories with Crenox against the most popular alterna
    GetStagedContent()  →  git show :<path>              (new files, full content)
          |
   [Pre-flight Filters]
+   - Bounded streaming queue (size 1024) to keep memory footprint bounded under concurrent load
+   - Early directory pruning: walks ignore excluded paths (e.g. node_modules, vendor) on the fly
    - Binary detection: null-byte scan of first 8 KB (isBinaryFileFast)
    - Extension exclusion: case-insensitive match
    - Path exclusion: filepath.Match glob patterns
