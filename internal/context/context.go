@@ -43,7 +43,7 @@ var safeFileSegments = map[string]bool{
 	"test": true, "tests": true, "testdata": true, "fixtures": true,
 	"__tests__": true, "__mocks__": true, "mock": true, "mocks": true,
 	"sample": true, "samples": true, "docs": true, "doc": true,
-	"spec": true, "specs": true,
+	"spec": true, "specs": true, "seed": true, "seeds": true,
 }
 
 // safeFileSuffixes are filename substrings that indicate the file is a test or doc.
@@ -139,13 +139,195 @@ func (d Decision) String() string {
 //   - lineContent: the full text of the line on which the secret was found
 //   - token: the specific token that triggered the detector
 func Classify(filePath, lineContent, token, sigID string) Decision {
+	lowerLine := strings.ToLower(lineContent)
+	isCredAssignment := (strings.Contains(lowerLine, "password") ||
+		strings.Contains(lowerLine, "secret") ||
+		strings.Contains(lowerLine, "token") ||
+		strings.Contains(lowerLine, "auth") ||
+		strings.Contains(lowerLine, "key")) &&
+		(strings.Contains(lowerLine, "=") || strings.Contains(lowerLine, ":"))
+
+	// ── Check 0A: Non-ASCII characters in token ──────────────────────────────
+	// Real API keys, secrets, base64, and hex strings are purely ASCII.
+	// Non-ASCII strings (like translation texts or comments) are safe.
+	for _, r := range token {
+		if r > 127 {
+			return SafePlaceholder
+		}
+	}
+
+	// ── Check 0B: npm-auth-key scope check ───────────────────────────────────
+	// npm registry _auth configurations are only valid inside .npmrc files.
+	if sigID == "npm-auth-key" {
+		base := strings.ToLower(filepath.Base(filePath))
+		if base != ".npmrc" && base != "npmrc" {
+			return SafeVariableName
+		}
+	}
+
+	// ── Check 0C: MIME type suppression ──────────────────────────────────────
+	// MIME types (like application/x-authorware-seg) are not secrets.
+	lowerToken := strings.ToLower(token)
+	if strings.Contains(lowerToken, "application/") || strings.Contains(lowerToken, "image/") ||
+		strings.Contains(lowerToken, "text/") || strings.Contains(lowerToken, "audio/") ||
+		strings.Contains(lowerToken, "video/") {
+		return SafePlaceholder
+	}
+
+	// ── Check 0D: Git commit SHA / reference in workflows ────────────────────
+	if strings.Contains(lineContent, "@"+token) {
+		return SafeVersionString
+	}
+
+	// ── Check 0E: Obvious placeholder values and safe constants ─────────────
+	commonPlaceholders := []string{
+		"your-key", "your-token", "your-actual", "your-api", "your-secret",
+		"your-discord", "your-glm", "your-baidu", "actual-key", "actual-openai",
+		"actual-anthropic", "secret-token", "bot-token", "xxx",
+		"not-a-real", "changeme", "lorem", "your-password", "your-secret-token",
+		"your_secret_token", "demo-",
+	}
+	for _, ph := range commonPlaceholders {
+		if strings.Contains(lowerToken, ph) {
+			return SafePlaceholder
+		}
+	}
+	if strings.HasSuffix(lowerToken, "-xxx") || strings.HasPrefix(lowerToken, "sk-proj-key") || strings.HasPrefix(lowerToken, "sk-ant-key") {
+		return SafePlaceholder
+	}
+
+	commonSafeConstants := map[string]bool{
+		"no_credentials":       true,
+		"invalid_credential":   true,
+		"not_handled":          true,
+		"internal_error":       true,
+		"invalid_api_key":      true,
+		"missing_api_key":      true,
+		"expired_token":        true,
+		"github-token":         true,
+		"auth_selection_model": true,
+		"authenticate":         true,
+		"client_credentials":   true,
+		"authorization_code":   true,
+		"password":             true,
+		"secret":               true,
+		"token":                true,
+		"current-password":     true,
+		"new-password":         true,
+	}
+	if commonSafeConstants[lowerToken] {
+		return SafePlaceholder
+	}
+
+	// ── Check 0G: Token IS a canonical config key name (not a value) ─────────
+	// Catches cases where a YAML key like "api-key:" has no value and the parser
+	// returns the key name itself. Key names are short, lowercase, hyphenated.
+	canonicalKeyNames := map[string]bool{
+		"api-key": true, "api_key": true, "auth-key": true, "auth_key": true,
+		"auth-password": true, "auth_password": true, "access-key": true, "access_key": true,
+		"secret-key": true, "secret_key": true, "private-key": true, "private_key": true,
+		"api-token": true, "api_token": true, "auth-token": true, "auth_token": true,
+		"access-token": true, "access_token": true, "secret-token": true, "secret_token": true,
+		"client-id": true, "client_id": true, "client-secret": true, "client_secret": true,
+		"app-key": true, "app_key": true, "app-secret": true, "app_secret": true,
+		"webhook-secret": true, "webhook_secret": true, "signing-key": true, "signing_key": true,
+	}
+	if canonicalKeyNames[lowerToken] {
+		return SafePlaceholder
+	}
+
+	// ── Check 0H: CamelCase + digit code identifier ───────────────────────────
+	// Catches alphanumeric function/method names like tencentCloudHmacsha256.
+	// Criteria: all chars alphanumeric, has BOTH upper and lower case letters,
+	// and has ≥4 consecutive lowercase letters (Go/Java camelCase pattern).
+	// GUARD: Do NOT suppress when the line is an explicit credential assignment
+	// (e.g. `password := "myRealComplexPassword123!"`). In that case the token
+	// is a value, not an identifier, even if it looks like camelCase.
+	if strings.Contains(sigID, "entropy") || strings.Contains(sigID, "base64") {
+		lowerLineForCamel := strings.ToLower(lineContent)
+		// A credential assignment has a cred word on the LHS AND an assignment operator.
+		isCredAssignment := (strings.Contains(lowerLineForCamel, "password") ||
+			strings.Contains(lowerLineForCamel, "secret") ||
+			strings.Contains(lowerLineForCamel, "token") ||
+			strings.Contains(lowerLineForCamel, "auth") ||
+			strings.Contains(lowerLineForCamel, "key")) &&
+			(strings.Contains(lowerLineForCamel, ":=") || strings.Contains(lowerLineForCamel, " = ") ||
+				strings.Contains(lowerLineForCamel, "= \"") || strings.Contains(lowerLineForCamel, "=\""))
+		if !isCredAssignment {
+			isAllAlphanumeric := true
+			hasUpper := false
+			hasLower := false
+			for _, r := range token {
+				if r >= 'a' && r <= 'z' {
+					hasLower = true
+				} else if r >= 'A' && r <= 'Z' {
+					hasUpper = true
+				} else if r >= '0' && r <= '9' || r == '_' {
+					// digits and underscores are OK in identifiers
+				} else {
+					isAllAlphanumeric = false
+					break
+				}
+			}
+			if isAllAlphanumeric && hasUpper && hasLower {
+				maxConsecLower, cur := 0, 0
+				for _, r := range token {
+					if r >= 'a' && r <= 'z' {
+						cur++
+						if cur > maxConsecLower {
+							maxConsecLower = cur
+						}
+					} else {
+						cur = 0
+					}
+				}
+				if maxConsecLower >= 4 {
+					return SafeVariableName
+				}
+			}
+		}
+	}
+
+	// ── Check 0I: Kebab/Snake case generic identifiers ────────────────────────
+	// Generic signatures often capture variable names, HTML attributes, or default
+	// key names (e.g. "current-password", "memos_access_token") as secrets.
+	// If a generic token is ONLY lowercase letters and separators, it is almost
+	// certainly an English-word identifier, not a real random secret.
+	// We skip this check for passwords, as "correct-horse-battery-staple"
+	// is a valid passphrase pattern.
+	if strings.HasPrefix(sigID, "generic-") && !strings.Contains(sigID, "password") && !strings.Contains(sigID, "pass-key") {
+		isKebabSnake := true
+		for _, r := range token {
+			if !((r >= 'a' && r <= 'z') || r == '-' || r == '_') {
+				isKebabSnake = false
+				break
+			}
+		}
+		if isKebabSnake {
+			return SafeVariableName
+		}
+	}
+
+	// ── Check 0F: Programming keywords in high-entropy strings ────────────────
+	if sigID == "hex" || sigID == "base64" || strings.Contains(sigID, "entropy") {
+		safeWords := []string{
+			"callback", "url", "offline", "download", "decision", "instant",
+			"retry", "cooldown", "switch", "procedure", "metadata", "selection",
+			"provider", "registrar", "executor", "applier",
+		}
+		for _, sw := range safeWords {
+			if strings.Contains(lowerToken, sw) {
+				return SafePlaceholder
+			}
+		}
+	}
+
 	// ── Check 1: Safe file path ──────────────────────────────────────────────
 	if IsTestFilePath(filePath) {
 		return SafeTestFile
 	}
 
 	// ── Check 1B: Base64 data image / URI suppression ───────────────────────
-	lowerLine := strings.ToLower(lineContent)
 	if strings.Contains(lowerLine, "data:image/") || strings.Contains(lowerLine, "data:application/") ||
 		strings.Contains(lowerLine, "data:audio/") || strings.Contains(lowerLine, "data:video/") ||
 		strings.Contains(lowerLine, "data:font/") {
@@ -241,16 +423,23 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 		return SafeVariableName
 	}
 
-	// ── Check 11: Mock/Test/Fake token values for generic rules ───────────────
-	// Reject generic token values that explicitly contain "mock", "test", "fake",
-	// or other test-fixture keywords.
-	if strings.HasPrefix(sigID, "generic-") {
-		lowerToken := strings.ToLower(token)
-		if strings.Contains(lowerToken, "mock") || strings.Contains(lowerToken, "fake") ||
-			strings.Contains(lowerToken, "placeholder") || strings.Contains(lowerToken, "dummy") ||
-			strings.Contains(lowerToken, "example") || strings.Contains(lowerToken, "test-token") ||
-			strings.Contains(lowerToken, "test_token") {
-			return SafeVariableName
+	// ── Check 11: Mock/Test/Fake token values ────────────────────────────────
+	if sigID == "hex" || sigID == "base64" || strings.Contains(sigID, "high-entropy") {
+		if !isCredAssignment {
+			if strings.Contains(lowerToken, "mock") || strings.Contains(lowerToken, "fake") ||
+				strings.Contains(lowerToken, "placeholder") || strings.Contains(lowerToken, "dummy") ||
+				strings.Contains(lowerToken, "example") || strings.Contains(lowerToken, "test-token") ||
+				strings.Contains(lowerToken, "test_token") || strings.Contains(lowerToken, "mocktoken") ||
+				strings.Contains(lowerToken, "notareal") || strings.Contains(lowerToken, "not-a-real") {
+				return SafeVariableName
+			}
+
+			// ── Check 11B: Sequential Mock Patterns ──────────────────────────────────
+			// Reject tokens containing obvious placeholder digit/letter runs like 1234567890, abcdefabcdef.
+			if strings.Contains(lowerToken, "1234567890") || strings.Contains(lowerToken, "abcdefabcdef") ||
+				strings.Contains(lowerToken, "qwertyqwerty") || strings.Contains(lowerToken, "asdfghasdfgh") {
+				return SafeVariableName
+			}
 		}
 	}
 
@@ -278,7 +467,7 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 	}
 
 	// ── Check 14: File path pattern suppression ──────────────────────────────
-	lowerToken := strings.ToLower(token)
+	lowerToken = strings.ToLower(token)
 	if strings.HasPrefix(lowerToken, "/root/") || strings.HasPrefix(lowerToken, "/home/") ||
 		strings.HasPrefix(lowerToken, "/usr/") || strings.HasPrefix(lowerToken, "/tmp/") ||
 		strings.HasPrefix(lowerToken, "/etc/") || strings.HasPrefix(lowerToken, "/var/") ||
@@ -343,7 +532,9 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 			strings.Contains(lowerVarName, "dir") || strings.Contains(lowerVarName, "folder") ||
 			strings.Contains(lowerVarName, "url") || strings.Contains(lowerVarName, "uri") ||
 			strings.Contains(lowerVarName, "host") || strings.Contains(lowerVarName, "link") ||
-			strings.Contains(lowerVarName, "email") {
+			strings.Contains(lowerVarName, "email") || strings.Contains(lowerVarName, "useragent") ||
+			strings.Contains(lowerVarName, "user_agent") || strings.Contains(lowerVarName, "ua") ||
+			strings.Contains(lowerVarName, "device") || strings.Contains(lowerVarName, "model") {
 			return SafeVariableName
 		}
 	}
@@ -383,6 +574,38 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 	// ── Check 20: Mozilla SOPS Encrypted Values ──────────────────────────────
 	// Ignore values encrypted by Mozilla SOPS (wrapped in ENC[AES256_GCM,...])
 	if strings.Contains(lineContent, "ENC[") {
+		return SafePlaceholder
+	}
+
+	// ── Check 21: Apple Entitlements / Plist Keys ────────────────────────────
+	// Reject generic entropy tokens inside .plist files or raw content if they
+	// contain Apple bundle identifiers, capability names, or domain strings.
+	if ext == ".plist" || strings.Contains(filePath, "entitlements") {
+		if strings.HasPrefix(lowerToken, "com.apple.") || strings.Contains(lowerToken, "allow-unsigned") ||
+			strings.Contains(lowerToken, "security.cs.") || strings.Contains(lowerToken, "entitlement") {
+			return SafeVariableName
+		}
+	}
+
+	// ── Check 22: URL Route / API Path / Code Concatenation ──────────────────
+	// Reject high-entropy base64/hex tokens that look like API routes/endpoints
+	// (contain multiple slashes, start with a slash) or contain code variable concatenations.
+	if sigID == "base64" || sigID == "hex" || strings.Contains(sigID, "high-entropy") {
+		if !isCredAssignment {
+			if strings.HasPrefix(token, "/") || (strings.Count(token, "/") >= 2 && !strings.Contains(token, "://")) {
+				return SafeFilePath
+			}
+		}
+		if strings.Contains(token, "+") {
+			if regexp.MustCompile(`[a-zA-Z0-9_]\+[a-zA-Z0-9_]`).MatchString(token) {
+				return SafeVariableName
+			}
+		}
+	}
+
+	// ── Check 23: Multipart form boundaries ──────────────────────────────────
+	// Ignore tokens matching multipart form boundaries (e.g. WebKitFormBoundary...)
+	if strings.Contains(lowerToken, "webkitformboundary") || strings.HasPrefix(lowerToken, "formboundary") {
 		return SafePlaceholder
 	}
 

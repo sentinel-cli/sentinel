@@ -20,12 +20,19 @@ LDFLAGS := -s -w \
 
 all: build
 
-## build: Build crenox for the current platform
+## build: Build crenox for the current platform (CLI only — no dashboard)
 build:
 	@echo "Building $(BINARY) $(VERSION)..."
 	@mkdir -p $(DIST_DIR)
 	@CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY) $(CMD_PATH)
 	@echo "✔ $(DIST_DIR)/$(BINARY)"
+
+## build-full: Build crenox with the private web dashboard enabled
+build-full:
+	@echo "Building $(BINARY) $(VERSION) [+dashboard]..."
+	@mkdir -p $(DIST_DIR)
+	@CGO_ENABLED=0 go build -trimpath -tags dashboard -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY)-full $(CMD_PATH)
+	@echo "✔ $(DIST_DIR)/$(BINARY)-full"
 
 ## cross: Cross-compile for all release targets
 cross:

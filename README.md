@@ -46,7 +46,7 @@ Crenox uses a **three-tier detection pipeline** designed for speed and false pos
 
 | Tier | Engine | Purpose |
 |------|--------|---------|
-| 1 — PATTERN | Aho-Corasick automaton | Matches 92 known secret signatures in O(n) time, zero allocations |
+| 1 — PATTERN | Aho-Corasick automaton | Matches 100 known secret signatures in O(n) time, zero allocations |
 | 2 — ENTROPY | Shannon entropy analysis | Catches unknown secrets by measuring information density |
 | 3 — CONTEXT | Context classifier | Suppresses false positives from comments, test files, and placeholders |
 
@@ -199,7 +199,8 @@ Measured on real-world repositories with Crenox against the most popular alterna
          |
   [Tier 1 — Aho-Corasick Trie  —  internal/trie/trie.go]
    Built once at startup via trie.Build() — allocation-free DFA matching
-   Case-insensitive O(n) scan per line using sync.Pool-recycled 8 MB streaming buffers to cap memory usage
+   Case-insensitive O(n) scan using a branchless 256-byte toLower lookup table
+   and sync.Pool-recycled 64 KB streaming buffers to cap heap memory to ~3 MB
    BIP-39 mnemonic detection: 12/15/18/21/24 words validated against 2048-word dictionary
    Single-layer Base64 decoding: re-feeds decoded value through trie (catches K8s secrets)
    Blob aggregation: 3+ consecutive high-entropy lines → single CRITICAL finding
@@ -339,7 +340,13 @@ A same-line annotation suppresses only that line. A comment-line annotation supp
 | **HashiCorp Vault** | Service token (`hvs.`), Batch token (`hvb.`) |
 | **DigitalOcean** | Personal Access Token (`dop_v1_`) |
 | **Vercel** | API Token (`vercel_`) |
-| **Cloudflare** | API Token (`CF_`) |
+| **Cloudflare** | API Token (`cloudflare-api-token`) |
+| **Linear** | API Key (`lin_api_`) |
+| **Databricks** | Personal Access Token (`dapi`) |
+| **PlanetScale** | Service Token (`pscale_tkn_`) |
+| **Supabase** | Service Role Key (JWT with Supabase-specific header) |
+| **Pinecone** | API Key (`pcsk_`) |
+| **Railway** | API Token (`railway_`) |
 | **HuggingFace** | API Token (`hf_`) |
 | **Shopify** | Custom App (`shpca_`), Private App (`shppa_`), Access Token (`shpat_`) |
 | **Generic** | `password=`, `secret=`, `api_key=`, `token=`, `auth=`, `pass=`, `pwd=`, and their YAML/JSON/space colon and snake_case variants |
@@ -719,6 +726,18 @@ A background check runs on each invocation, querying the API at most once per 24
 
 </details>
 
+<details>
+<summary>crenox dashboard — local control panel</summary>
+
+Launches the interactive, self-hosted web control panel and worker scan queue on your local machine.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-p, --port` | `8080` | Port to run the HTTP web server on |
+| `--no-open` | `false` | Do not automatically open dashboard in default browser |
+
+</details>
+
 ---
 
 ## Output Reference
@@ -791,6 +810,11 @@ Tier 3 automatically eliminates the vast majority of false positives. For persis
 | **Key File Entropy Bypass** | Skips raw line-by-line entropy checks on key extensions (`.pem`, `.key`, `.rsa`, `.crt`, `.pub`) |
 | **Function Call Protection** | Automatically filters out code function calls and methods containing parentheses |
 | **Source RHS Quote Enforcement** | Automatically skips unquoted RHS tokens (variables, struct types, function calls) in source code files |
+| **Rust/C++ Generic Type Filter** | Tokens containing `<` or `>` (e.g. `Option<u64>`, `Vec<T>`) are never reported as secrets |
+| **Lowercase Identifier Filter** | Tokens composed entirely of lowercase letters and underscores (e.g. `pass_summaries`) are rejected by generic rules |
+| **Git Commit SHA Filter** | 20-char and 40-char pure hex tokens are rejected by the `high-entropy-hex` rule to eliminate dependency pinning hashes |
+| **YAML Key Name Filter** | Key names without values (e.g. `api-key:`) are detected and discarded before being reported |
+| **Seed Directory Suppression** | Files inside `seed/` or `seeds/` directories are treated as safe test data automatically |
 | `allowlist_patterns` in config | Known safe tokens used repeatedly across the codebase |
 | Move to test file path | Values in `tests/`, `testdata/`, `*_test.go`, `.md` are suppressed automatically |
 | `${ENV_VAR}` reference syntax | Replaced at runtime — not a hardcoded secret |

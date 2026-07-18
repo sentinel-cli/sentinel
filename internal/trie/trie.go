@@ -348,13 +348,22 @@ func (a *Automaton) Search(content []byte) []Match {
 	return matches
 }
 
-// toLower converts an ASCII byte to lowercase without a branch table.
-// If b >= 128, it returns it as-is, which will be caught by the loop bounds check.
-func toLower(b byte) byte {
-	if b >= 'A' && b <= 'Z' {
-		return b + ('a' - 'A')
+var toLowerTable [256]byte
+
+func init() {
+	for i := 0; i < 256; i++ {
+		b := byte(i)
+		if b >= 'A' && b <= 'Z' {
+			toLowerTable[i] = b | 0x20
+		} else {
+			toLowerTable[i] = b
+		}
 	}
-	return b
+}
+
+// toLower converts an ASCII byte to lowercase using a branchless lookup table.
+func toLower(b byte) byte {
+	return toLowerTable[b]
 }
 
 // isAssignmentOrKeyword checks case-insensitively if prefix contains '=' or ':',

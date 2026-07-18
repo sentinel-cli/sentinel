@@ -40,4 +40,9 @@ skills-lock.json
 # Cloned local repositories
 nexusfi-web/
 
-
+# ─────────────────────────────────────────────────────────────────────────────
+# Dashboard (private feature — not published to the public repo)
+# Build locally with: go build -tags dashboard ./cmd/crenox
+# ─────────────────────────────────────────────────────────────────────────────
+internal/web/
+cmd/crenox/commands/dashboard.go

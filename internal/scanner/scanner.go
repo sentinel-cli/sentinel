@@ -145,49 +145,20 @@ func (s *Scanner) isAllowed(token string) bool {
 // fmtVerbRE matches printf-style format verbs so they can be rejected as tokens.
 var fmtVerbRE = regexp.MustCompile(`^%[+\-# 0-9]*[vTtbcdoOqxXUeEfFgGsSpw]`)
 
-// isLogIndicator checks if a line clearly indicates structured log/trace output.
-// Replaces the extremely slow case-insensitive regex.
+// isLogIndicator checks if a line clearly indicates structured log/trace output
+// with an explicit authentication credential present (Bearer token, auth header, etc.).
+// We require STRONG signals (bearer or explicit auth: / Authorization:) and NOT
+// just the generic word "key" or "token", which appears in almost every config file.
 func isLogIndicator(line []byte) bool {
-	if len(line) < 20 {
+	if len(line) < 30 {
 		return false
 	}
-	// Single-pass case-insensitive key scanner (Zero-allocations)
-	// Since "bearer", "token", "auth" start with b, t, a, we check them directly.
-	for i := 0; i < len(line)-5; i++ {
-		c := line[i]
-		if c == 'b' || c == 'B' {
-			if i+6 <= len(line) &&
-				(line[i+1]|0x20) == 'e' &&
-				(line[i+2]|0x20) == 'a' &&
-				(line[i+3]|0x20) == 'r' &&
-				(line[i+4]|0x20) == 'e' &&
-				(line[i+5]|0x20) == 'r' {
-				return true
-			}
-		} else if c == 't' || c == 'T' {
-			if i+5 <= len(line) &&
-				(line[i+1]|0x20) == 'o' &&
-				(line[i+2]|0x20) == 'k' &&
-				(line[i+3]|0x20) == 'e' &&
-				(line[i+4]|0x20) == 'n' {
-				return true
-			}
-		} else if c == 'a' || c == 'A' {
-			if i+4 <= len(line) &&
-				(line[i+1]|0x20) == 'u' &&
-				(line[i+2]|0x20) == 't' &&
-				(line[i+3]|0x20) == 'h' {
-				return true
-			}
-		} else if c == 'k' || c == 'K' {
-			if i+3 <= len(line) &&
-				(line[i+1]|0x20) == 'e' &&
-				(line[i+2]|0x20) == 'y' {
-				return true
-			}
-		}
-	}
-	return false
+	return bytes.Contains(line, []byte("bearer ")) ||
+		bytes.Contains(line, []byte("Bearer ")) ||
+		bytes.Contains(line, []byte("BEARER ")) ||
+		bytes.Contains(line, []byte("authorization:")) ||
+		bytes.Contains(line, []byte("Authorization:")) ||
+		bytes.Contains(line, []byte("AUTHORIZATION:"))
 }
 
 var (
@@ -677,8 +648,51 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 			// dense token)
 			if !hasSpace {
 				if cLen >= s.opts.MinSecretLength {
-					hits := entropy.Analyze(compVal, s.opts.EntropyThreshold, s.opts.MinSecretLength)
-					for _, h := range hits {
+					threshold := s.opts.EntropyThreshold
+					if isAssignment {
+						var lhs []byte
+						if idx := bytes.Index(lineTrim, []byte(":=")); idx >= 0 {
+							lhs = lineTrim[:idx]
+						} else if idx := bytes.Index(lineTrim, []byte("=")); idx >= 0 {
+							lhs = lineTrim[:idx]
+						} else if idx := bytes.Index(lineTrim, []byte(":")); idx >= 0 {
+							lhs = lineTrim[:idx]
+						}
+						if len(lhs) > 0 {
+							lowerLHS := strings.ToLower(string(lhs))
+							if strings.Contains(lowerLHS, "token") ||
+								strings.Contains(lowerLHS, "secret") ||
+								strings.Contains(lowerLHS, "password") ||
+								strings.Contains(lowerLHS, "passwd") ||
+								strings.Contains(lowerLHS, "pass") ||
+								strings.Contains(lowerLHS, "pwd") ||
+								strings.Contains(lowerLHS, "auth") ||
+								strings.Contains(lowerLHS, "credential") ||
+								strings.Contains(lowerLHS, "api_key") ||
+								strings.Contains(lowerLHS, "apikey") ||
+								strings.Contains(lowerLHS, "secret_key") ||
+								strings.Contains(lowerLHS, "secretkey") ||
+								strings.Contains(lowerLHS, "private_key") ||
+								strings.Contains(lowerLHS, "privatekey") ||
+								strings.Contains(lowerLHS, "access_key") ||
+								strings.Contains(lowerLHS, "accesskey") ||
+								strings.Contains(lowerLHS, "auth_key") ||
+								strings.Contains(lowerLHS, "authkey") ||
+								strings.Contains(lowerLHS, "app_key") ||
+								strings.Contains(lowerLHS, "appkey") ||
+								strings.Contains(lowerLHS, "master_key") ||
+								strings.Contains(lowerLHS, "masterkey") {
+								threshold = 4.0
+							}
+						}
+					}
+					hits := entropy.Analyze(compVal, threshold, s.opts.MinSecretLength)
+					for i := range hits {
+						h := &hits[i]
+						idx := strings.Index(h.Token, "=")
+						if idx != -1 && idx < len(h.Token)-2 {
+							h.Token = h.Token[idx+1:]
+						}
 						if s.isAllowed(h.Token) {
 							continue
 						}
@@ -755,6 +769,8 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 								// pure identifiers (contain only letters, dots, and underscores).
 								// If the token contains digits, +, /, or =, it is highly likely
 								// to be a real base64 secret rather than a code identifier.
+								// isPureIdent: only letters, dots, underscores — no digits.
+								// Real base64 secrets containing digits are NOT code identifiers.
 								isPureIdent := true
 								for _, c := range h.Token {
 									if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c == '_') {
@@ -850,8 +866,10 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 						tok := lineTrim[startTok:i]
 						if len(tok) >= s.opts.MinSecretLength {
 							tokStr := cleanTokenBytes(tok)
-							if len(tokStr) >= s.opts.MinSecretLength {
-								hits := entropy.Analyze(tokStr, 4.0, s.opts.MinSecretLength)
+							// Require token to be at least 20 chars for log-line auth context detection
+				// to prevent short variable names from being flagged.
+				if len(tokStr) >= 20 && len(tokStr) >= s.opts.MinSecretLength {
+								hits := entropy.Analyze(tokStr, 4.5, s.opts.MinSecretLength)
 								for _, h := range hits {
 									if s.isAllowed(h.Token) {
 										continue
@@ -1067,6 +1085,14 @@ func matchesPathComponent(filePath, pattern string) bool {
 //   - Variable names like "ACAccountSID" are never returned as values.
 //   - Only the actual RHS of an assignment or an inline literal is evaluated.
 func extractSecretValue(lineTrim []byte, isSource bool) (val []byte, isAssignment bool) {
+	if isSource {
+		if bytes.HasPrefix(lineTrim, []byte("type ")) ||
+			bytes.HasPrefix(lineTrim, []byte("export type ")) ||
+			bytes.HasPrefix(lineTrim, []byte("interface ")) ||
+			bytes.HasPrefix(lineTrim, []byte("export interface ")) {
+			return nil, false
+		}
+	}
 	// ── Assignment branch ─────────────────────────────────────────────────────
 	// Detect ":=" (Go) or "=" (shell/env/YAML/generic) assignment operators.
 	// We must be careful not to trigger on "==" (comparison) or inside quotes.
@@ -1136,39 +1162,41 @@ func extractRHS(line []byte) ([]byte, bool) {
 	}
 
 	// = — but not == or !=
-	// Scan character by character to find a bare = that is not doubled.
-	inQuote := false
-	var quoteChar byte
-	for i := 0; i < len(line); i++ {
-		b := line[i]
-		if inQuote {
-			if b == quoteChar && (i == 0 || line[i-1] != '\\') {
-				inQuote = false
-			}
-			continue
-		}
-		if b == '"' || b == '\'' || b == '`' {
-			inQuote = true
-			quoteChar = b
-			continue
-		}
-		if b == '=' {
-			// Reject "==" and "!=" and ">=" and "<="
-			prev := byte(0)
-			if i > 0 {
-				prev = line[i-1]
-			}
-			next := byte(0)
-			if i+1 < len(line) {
-				next = line[i+1]
-			}
-			if next == '=' || prev == '!' || prev == '<' || prev == '>' || prev == '=' {
+	// Fast path: if the line doesn't contain '=' at all, we can skip the loop.
+	if bytes.IndexByte(line, '=') >= 0 {
+		inQuote := false
+		var quoteChar byte
+		for i := 0; i < len(line); i++ {
+			b := line[i]
+			if inQuote {
+				if b == quoteChar && (i == 0 || line[i-1] != '\\') {
+					inQuote = false
+				}
 				continue
 			}
-			if i+1 >= len(line) {
-				return nil, false
+			if b == '"' || b == '\'' || b == '`' {
+				inQuote = true
+				quoteChar = b
+				continue
 			}
-			return bytes.TrimSpace(line[i+1:]), true
+			if b == '=' {
+				// Reject "==" and "!=" and ">=" and "<="
+				prev := byte(0)
+				if i > 0 {
+					prev = line[i-1]
+				}
+				next := byte(0)
+				if i+1 < len(line) {
+					next = line[i+1]
+				}
+				if next == '=' || prev == '!' || prev == '<' || prev == '>' || prev == '=' {
+					continue
+				}
+				if i+1 >= len(line) {
+					return nil, false
+				}
+				return bytes.TrimSpace(line[i+1:]), true
+			}
 		}
 	}
 
@@ -1210,6 +1238,9 @@ func firstQuotedLiteral(s []byte) []byte {
 // literal found in s, separated by spaces.  Used for non-assignment lines
 // where we want to scan only what is inside string literals.
 func allQuotedLiterals(s []byte) []byte {
+	if !bytes.ContainsAny(s, "\"`'") {
+		return nil
+	}
 	var partsBuf [8][]byte
 	parts := partsBuf[:0]
 	inQuote := false
@@ -1434,8 +1465,8 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 		}
 	}
 	// Filter out public cryptocurrency wallet addresses (e.g., Ethereum)
-	// and Git SHAs, which are exactly 40 characters long (hex)
-	if len(token) == 40 && sigID == "high-entropy-hex" {
+	// and Git SHAs, which are exactly 40 or 20 characters long (hex)
+	if (len(token) == 40 || len(token) == 20) && sigID == "high-entropy-hex" {
 		return false
 	}
 	minAllowed := minLen / 2
@@ -1448,9 +1479,28 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 	}
 
 	// 1. Reject function-call expressions (contain parentheses) and placeholders.
-	// Real secrets never contain ( or ) or { or }.
-	if strings.ContainsAny(token, "(){}") {
+	// Real secrets never contain ( or ) or { or } or < or >.
+	if strings.ContainsAny(token, "(){}<>") {
 		return false
+	}
+
+	// 1B. Base64 sanity checks:
+	// - Real base64 secrets only contain '=' as padding at the very end.
+	// - Real base64 secrets never mix standard (+, /) and URL-safe (-, _) alphabets.
+	if sigID == "base64" || strings.Contains(sigID, "base64") {
+		idx := strings.Index(token, "=")
+		if idx != -1 && idx < len(token)-2 {
+			rhs := token[idx+1:]
+			if len(rhs) < 6 || strings.Contains(rhs, "=") {
+				return false
+			}
+			token = rhs
+		}
+		hasStd := strings.Contains(token, "+") || strings.Contains(token, "/")
+		hasUrlSafe := strings.Contains(token, "-") || strings.Contains(token, "_")
+		if hasStd && hasUrlSafe {
+			return false
+		}
 	}
 
 	// 2. Reject common variable references (e.g. settings.SECRET_KEY, process.env.PASSWORD)
@@ -1461,12 +1511,28 @@ func isPlausibleSecretToken(token, prefix, sigID string, minLen int) bool {
 
 	// 3. Stricter checks for generic rules to eliminate variable name/type/expression leaks
 	if strings.HasPrefix(sigID, "generic-") {
+		// Reject tokens consisting entirely of lowercase letters and underscores (lowercase variable names)
+		isLowercaseId := true
+		for _, r := range token {
+			if !((r >= 'a' && r <= 'z') || r == '_') {
+				isLowercaseId = false
+				break
+			}
+		}
+		if isLowercaseId {
+			return false
+		}
 		// Reject tokens with logic operators, colons, or spaces
 		if strings.ContainsAny(token, "$[]*;|&\"!? :") || strings.Contains(token, "->") {
 			return false
 		}
 		// If it's a property path (contains dot) and it's from a generic rule, reject it
 		if strings.Contains(token, ".") {
+			return false
+		}
+		// Reject YAML/config key names being mistaken for secret values.
+		// This catches cases where "api-key:" has no value and the key name itself is returned.
+		if isKeyNameToken(token) {
 			return false
 		}
 		// If a generic API/Secret token consists ONLY of letters (no digits), it's overwhelmingly
@@ -1585,6 +1651,47 @@ func isPureIdentifier(s string) bool {
 		}
 	}
 	return !hasNonAlpha
+}
+
+// isKeyNameToken returns true when a token looks like a YAML/config key name
+// rather than a secret value. Key names are typically short, hyphenated or
+// underscored lowercase words (e.g. "api-key", "auth-password", "secret-key").
+// These appear when a YAML key has no value and the scanner mistakenly returns
+// the key name itself as the extracted token.
+func isKeyNameToken(token string) bool {
+	if len(token) > 30 {
+		return false
+	}
+	// Must be all lowercase letters with hyphens or underscores only
+	for _, r := range token {
+		if !((r >= 'a' && r <= 'z') || r == '-' || r == '_') {
+			return false
+		}
+	}
+	// Must contain at least one separator (hyphens/underscores make it a key name)
+	if !strings.ContainsAny(token, "-_") {
+		return false
+	}
+	// Known key-name patterns that are NEVER secret values
+	keyNames := []string{
+		"api-key", "api_key", "auth-key", "auth_key", "auth-password", "auth_password",
+		"access-key", "access_key", "secret-key", "secret_key", "private-key", "private_key",
+		"api-token", "api_token", "auth-token", "auth_token", "access-token", "access_token",
+		"secret-token", "secret_token", "bearer-token", "bearer_token",
+		"client-id", "client_id", "client-secret", "client_secret",
+		"app-key", "app_key", "app-secret", "app_secret",
+		"db-password", "db_password", "database-password", "database_password",
+		"redis-password", "redis_password", "mysql-password", "mysql_password",
+		"admin-password", "admin_password", "user-password", "user_password",
+		"webhook-secret", "webhook_secret", "signing-secret", "signing_key",
+	}
+	lower := strings.ToLower(token)
+	for _, kn := range keyNames {
+		if lower == kn {
+			return true
+		}
+	}
+	return false
 }
 
 // entropySeverity maps an entropy value to a severity level.

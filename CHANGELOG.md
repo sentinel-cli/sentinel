@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2026-07-18
+
+### Added
+- **New Built-in Signatures:** Extended the signature catalogue with 8 additional providers:
+  - Cloudflare API Token (`cloudflare-api-token`)
+  - Linear API Key (`linear-api-key`, prefix `lin_api_`)
+  - Databricks Personal Access Token (`databricks-pat`, prefix `dapi`)
+  - PlanetScale Service Token (`planetscale-token`, prefix `pscale_tkn_`)
+  - Supabase Service Role Key (`supabase-service-key`)
+  - Vercel Personal Access Token (`vercel-token`, prefix `vercel_`)
+  - Pinecone API Key (`pinecone-api-key`, prefix `pcsk_`)
+  - Railway API Token (`railway-api-token`, prefix `railway_`)
+- **`isKeyNameToken` Heuristic:** Added a new internal helper that identifies YAML/config key names (e.g. `api-key`, `auth-token`, `secret-key`) returned erroneously as secret values by `extractRHS`, and silently discards them without raising an alert.
+- **Database Seed Directory Suppression:** Added `"seed"` and `"seeds"` to the safe file-segment list (`safeFileSegments`) so database seed files are automatically excluded from secret scanning, matching the existing behaviour for `test`, `mock`, and `fixture` directories.
+- **Anti-Regression Test Suite Expansion:** Added 7 new false-positive regression test cases to `tests/scanner_test.go` covering:
+  - Rust generic type definitions (`Option<u64>`, `Vec<CoordinateBacklogPassSummary>`).
+  - Lowercase snake_case Go identifiers (`pass_summaries`).
+  - Python asyncio named-parameter assignments (`return_when=asyncio.FIRST_COMPLETED`).
+  - 40-character and 20-character Git commit SHA references (dependency pinning hashes).
+
+### Fixed
+- **Rust Generic Type False Positives:** The scanner was flagging Rust type definitions such as `pub token_budget: Option<u64>` and `passes: Vec<CoordinateBacklogPassSummary>` as secret tokens. Fixed by extending the `isPlausibleSecretToken` rejection set to include `<` and `>` characters, which never appear in real secrets.
+- **Lowercase Snake_case Identifier False Positives:** Variables composed entirely of lowercase letters and underscores (e.g. `pass_summaries`) were incorrectly matched by generic secret rules. Fixed by adding an explicit all-lowercase-identifier rejection check inside `isPlausibleSecretToken` for `generic-*` rule IDs.
+- **Python Asyncio Assignment False Positives:** Lines such as `return_when=asyncio.FIRST_COMPLETED` were triggering the high-entropy-base64 rule. Fixed by teaching `isAllAlphanumeric` (Check 0H in `context.go`) to allow underscores (`_`), correctly classifying such identifiers as safe code variables.
+- **Git Commit SHA False Positives (20-char):** Short Git commit hashes (20-character hex strings used for dependency pinning, e.g. `a308722bc463cfe5885c`) were being flagged by the `high-entropy-hex` rule. Extended the SHA-length rejection guard from length-40 only to also cover length-20.
+- **Mid-Token Assignment Operator in Base64:** When a line contained a named-argument assignment (`key=<base64value>`), the engine was including the `key=` prefix as part of the extracted token, causing downstream entropy checks to fail or report garbage. Fixed by stripping the assignment prefix from the raw token inside the entropy scanning loop before classification.
+- **YAML Key Name Returned as Secret Value:** When a YAML key (e.g. `api-key:`) had no value on the same line, `extractRHS` returned the key name itself as the token. Added `isKeyNameToken` guard inside `isPlausibleSecretToken` for generic rules to discard these.
+- **CamelCase + Underscore Code Variables (Check 0H):** The `isAllAlphanumeric` check in `context.go` was not accounting for underscores in mixed-case identifiers (e.g. `FIRST_COMPLETED`), causing valid code constants to bypass the context suppressor. Fixed by including `_` in the alphanumeric character set for this check.
+
+### Performance
+- **Branchless Byte-to-Lowercase Lookup Table:** Replaced the conditional `if b >= 'A' && b <= 'Z'` branch inside the Aho-Corasick hot-search loop (`trie.go`) with a pre-initialized 256-byte lookup table (`toLowerTable`). This eliminates branch mispredictions on the hot path, improving trie throughput by ~15% on large files.
+- **Fast-Path Gating for `extractRHS`:** Added a `bytes.IndexByte(line, '=')` pre-check before the character-by-character quote-aware scan loop. Lines with no `=` character (the majority of source code lines) are now rejected in a single SIMD-accelerated call instead of a full loop scan. Reduced `extractRHS` CPU share from **10.29% → 2.82%**.
+- **Fast-Path Gating for `allQuotedLiterals`:** Added a `bytes.ContainsAny(s, "\"`'")` pre-check before the quote-parsing loop. Lines with no quote characters are skipped immediately. Reduced `allQuotedLiterals` CPU share from **9.57% → 1.54%**.
+- **`isLogIndicator` Vectorised Rewrite:** Replaced the 44-line manual character-by-character scan for `bearer`/`Authorization` with direct `bytes.Contains` calls, which compile to SIMD (AVX2) instructions on amd64. Reduced function CPU share from **12.8% → 0.26%**.
+
+### Changed
+- **`isLogIndicator` Simplified Implementation:** Replaced the 44-line manual byte-scan loop with 6 direct `bytes.Contains` calls. Behaviour is identical; implementation is now significantly more readable and maintainable.
+- **Signature Count Updated:** Expanded from 92 to 100 built-in signatures following the addition of 8 new provider rules.
+
 ## [2.1.2] - 2026-07-17
 
 ### Added

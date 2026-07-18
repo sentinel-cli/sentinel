@@ -366,9 +366,9 @@ func TestScanner_MailgunKey_NotTruncated(t *testing.T) {
 
 func TestScanner_HexLettersOnly_Detected(t *testing.T) {
 	s := defaultScanner()
-	// abcdefABCDEFabcdefABCDEF is a 24-character hex string composed entirely of letters a-f and A-F.
+	// aBcDeFbAdCeFaBcDeFbAdCeF is a 24-character hex string composed entirely of letters a-f and A-F.
 	// It should be detected as a hex token by the entropy analyzer and not skipped by isJavaConstant.
-	findings := scan(s, "secret.conf", `abcdefABCDEFabcdefABCDEF`)
+	findings := scan(s, "secret.conf", `aBcDeFbAdCeFaBcDeFbAdCeF`)
 	if len(findings) == 0 {
 		t.Error("expected finding for hex token composed entirely of letters a-f/A-F")
 	}
@@ -646,6 +646,36 @@ func TestFalsePositive_Regression(t *testing.T) {
 			name:    "GitHub Actions GITHUB_TOKEN placeholder",
 			file:    "links.yml",
 			content: "GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}",
+		},
+		{
+			name:    "Rust type option definition false positive",
+			file:    "config.rs",
+			content: "pub token_budget: Option<u64>,",
+		},
+		{
+			name:    "Rust type vec definition false positive",
+			file:    "main.rs",
+			content: "passes: Vec<CoordinateBacklogPassSummary>,",
+		},
+		{
+			name:    "Lowercase identifier generic match false positive",
+			file:    "main.go",
+			content: "passes: pass_summaries,",
+		},
+		{
+			name:    "Code logic assignment in Python base64 false positive",
+			file:    "ws_listener.py",
+			content: "return_when=asyncio.FIRST_COMPLETED,",
+		},
+		{
+			name:    "Git commit SHA dependency false positive",
+			file:    "scan-supply-chain.js",
+			content: "'github:tanstack/router#79ac49eedf774dd4b0cf',",
+		},
+		{
+			name:    "Raw 20-character git commit hash false positive",
+			file:    "scan-supply-chain.js",
+			content: "'a308722bc463cfe5885c',",
 		},
 	}
 

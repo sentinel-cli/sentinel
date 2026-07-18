@@ -86,14 +86,19 @@ Developed by: Khaled Hani | Contact: https://t.me/A245F`,
 Developed by: Khaled Hani | Contact: https://t.me/A245F
 `)
 
-	root.AddCommand(
+	cmds := []*cobra.Command{
 		commands.NewRunCmd(),
 		commands.NewInstallCmd(),
 		commands.NewScanCmd(),
 		commands.NewUpdateCmd(),
 		commands.NewUninstallCmd(),
 		commands.NewVersionCmd(),
-	)
+	}
+	// Dashboard is only available in builds compiled with -tags dashboard.
+	if dashCmd := commands.NewDashboardCmd(); dashCmd != nil {
+		cmds = append(cmds, dashCmd)
+	}
+	root.AddCommand(cmds...)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "crenox: error:", err)

@@ -34,6 +34,12 @@ scan_binary_files: false
 
 # Glob patterns (relative to repo root) to skip entirely.
 # Supports ** for recursive matching.
+#
+# Note: the following directory names are ALWAYS suppressed automatically
+# regardless of this list (they are treated as safe test/fixture data):
+#   test, tests, testdata, fixtures, __tests__, __mocks__, mock, mocks,
+#   sample, samples, docs, doc, spec, specs, seed, seeds
+#
 exclude_paths:
   - "vendor/**"
   - "node_modules/**"
@@ -60,8 +66,14 @@ exclude_paths:
 # Global allowlist for custom patterns or exact strings.
 # Any finding matching these globs will be silently ignored.
 allowlist_patterns:
-  - "AKIAIOSFODNN7EXAMPLE"
-  - "*-dummy-token-*"
+  - "AKIAIOSFODNN7EXAMPLE"       # AWS example key (docs)
+  - "*-dummy-token-*"            # generic test placeholder
+  - "sk_test_*"                  # Stripe test keys
+  - "lin_api_example*"           # Linear example tokens
+  - "dapi_example*"              # Databricks example tokens
+  - "pscale_tkn_example*"        # PlanetScale example tokens
+  - "pcsk_example*"              # Pinecone example tokens
+  - "railway_example*"           # Railway example tokens
 
 # File extensions to always skip (case-insensitive).
 exclude_extensions:
@@ -123,3 +135,16 @@ fail_fast: false
 # Print debug information to stderr. Useful for troubleshooting exclusions.
 # Default: false
 verbose: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Automatic False-Positive Suppressions (v2.1.3+, no config needed)
+# ─────────────────────────────────────────────────────────────────────────────
+# The following are filtered automatically without any configuration:
+#
+#   • Rust/C++ generic type tokens  — Option<u64>, Vec<T>, etc.
+#   • Lowercase snake_case identifiers — pass_summaries, token_budget, etc.
+#   • Git commit SHAs (20 or 40 hex chars) — dependency pinning references
+#   • YAML/config key names without values — api-key:, auth-token:, etc.
+#   • Files inside seed/ or seeds/ directories
+#   • Python asyncio named parameters — return_when=asyncio.FIRST_COMPLETED
+# ─────────────────────────────────────────────────────────────────────────────
