@@ -726,18 +726,6 @@ A background check runs on each invocation, querying the API at most once per 24
 
 </details>
 
-<details>
-<summary>crenox dashboard — local control panel</summary>
-
-Launches the interactive, self-hosted web control panel and worker scan queue on your local machine.
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-p, --port` | `8080` | Port to run the HTTP web server on |
-| `--no-open` | `false` | Do not automatically open dashboard in default browser |
-
-</details>
-
 ---
 
 ## Output Reference
