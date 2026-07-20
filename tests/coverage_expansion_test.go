@@ -1,3 +1,5 @@
+//go:build dashboard
+
 package tests
 
 import (
