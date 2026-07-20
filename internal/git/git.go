@@ -39,7 +39,7 @@ func GetStagedDiff(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("git diff for %q: %w", path, err)
 	}
-	return filterAddedLines(out), nil
+	return FilterAddedLines(out), nil
 }
 
 // GetStagedContent returns the full staged blob content for a file.
@@ -113,9 +113,9 @@ func parseStagedFiles(raw []byte) []StagedFile {
 	return files
 }
 
-// filterAddedLines extracts only the lines introduced by the diff (those
+// FilterAddedLines extracts only the lines introduced by the diff (those
 // starting with '+') excluding the diff header lines ('+++').
-func filterAddedLines(diff []byte) []byte {
+func FilterAddedLines(diff []byte) []byte {
 	var buf bytes.Buffer
 	lines := bytes.Split(diff, []byte("\n"))
 	for _, line := range lines {

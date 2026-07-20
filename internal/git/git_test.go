@@ -41,7 +41,7 @@ index 83db48f..1234567 100644
 `)
 	expected := []byte("\tfmt.Println(\"New\")\n\tsecret := \"AKIAIOSFODNN7EXAMPLE\"\n")
 
-	result := filterAddedLines(diff)
+	result := FilterAddedLines(diff)
 	if !bytes.Equal(result, expected) {
 		t.Errorf("expected %q, got %q", string(expected), string(result))
 	}

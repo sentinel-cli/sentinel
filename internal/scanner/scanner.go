@@ -153,12 +153,9 @@ func isLogIndicator(line []byte) bool {
 	if len(line) < 30 {
 		return false
 	}
-	return bytes.Contains(line, []byte("bearer ")) ||
-		bytes.Contains(line, []byte("Bearer ")) ||
-		bytes.Contains(line, []byte("BEARER ")) ||
-		bytes.Contains(line, []byte("authorization:")) ||
-		bytes.Contains(line, []byte("Authorization:")) ||
-		bytes.Contains(line, []byte("AUTHORIZATION:"))
+	lower := bytes.ToLower(line)
+	return bytes.Contains(lower, []byte("bearer ")) ||
+		bytes.Contains(lower, []byte("authorization:"))
 }
 
 var (
@@ -231,8 +228,9 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 	var prevLineTrim []byte // track the previous trimmed line for multiline macro context
 
 	leftover := []byte{}
+	leftoverOversized := false
 	var compBuf [512]byte
-	mergeBuf := make([]byte, len(buf)*2)
+	var mergeBuf []byte // allocated lazily only when a read boundary splits a line
 
 	for {
 		n, err := r.Read(buf)
@@ -246,15 +244,31 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 		var chunk []byte
 		if len(leftover) > 0 {
 			needed := len(leftover) + n
-			if needed > len(mergeBuf) {
-				mergeBuf = make([]byte, needed*2)
+			if needed > 8192 {
+				// Prevent memory/time explosion on minified files with 4MB+ lines.
+				leftover = leftover[:0]
+				leftoverOversized = true
+				chunk = buf[:n]
+			} else {
+				if needed > len(mergeBuf) {
+					mergeBuf = make([]byte, needed*2)
+				}
+				chunk = mergeBuf[:needed]
+				copy(chunk, leftover)
+				copy(chunk[len(leftover):], buf[:n])
+				leftover = leftover[:0]
 			}
-			chunk = mergeBuf[:needed]
-			copy(chunk, leftover)
-			copy(chunk[len(leftover):], buf[:n])
-			leftover = leftover[:0]
 		} else {
 			chunk = buf[:n]
+		}
+
+		if leftoverOversized {
+			lastNL := bytes.LastIndexByte(chunk, '\n')
+			if lastNL == -1 {
+				continue // still skipping the current oversized line
+			}
+			leftoverOversized = false
+			chunk = chunk[lastNL+1:]
 		}
 
 		lastNL := bytes.LastIndexByte(chunk, '\n')
@@ -263,11 +277,22 @@ func (s *Scanner) ScanReader(filePath string, r io.Reader) []Finding {
 			processChunk = chunk
 			leftover = leftover[:0]
 		} else if lastNL == -1 {
-			leftover = append(leftover, chunk...)
+			if len(chunk) > 8192 {
+				leftoverOversized = true
+				leftover = leftover[:0]
+			} else {
+				leftover = append(leftover, chunk...)
+			}
 			continue
 		} else {
 			processChunk = chunk[:lastNL]
-			leftover = append(leftover, chunk[lastNL+1:]...)
+			rem := chunk[lastNL+1:]
+			if len(rem) > 8192 {
+				leftoverOversized = true
+				leftover = leftover[:0]
+			} else {
+				leftover = append(leftover, rem...)
+			}
 		}
 
 		start := 0
@@ -1732,7 +1757,7 @@ func aggregateBlobs(findings []Finding) []Finding {
 				LineContent:   fmt.Sprintf("[... %d consecutive lines of %s ...]", len(currentBlob), kind),
 				Token:         fmt.Sprintf("<%d lines aggregated>", len(currentBlob)),
 				Entropy:       first.Entropy,
-				DetectionTier: TierTrie,
+				DetectionTier: TierEntropy,
 				SignatureID:   fmt.Sprintf("massive-%s-blob", strings.ToLower(kind)),
 				Description:   fmt.Sprintf("Massive %s/Cryptographic Blob Detected (Potential Keystore/Vault)", kind),
 				Severity:      "CRITICAL",

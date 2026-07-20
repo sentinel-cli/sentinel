@@ -71,6 +71,14 @@ var (
 
 	// versionLike matches version strings that are mistaken for hex secrets.
 	versionLike = regexp.MustCompile(`^\d+\.\d+\.\d+`)
+
+	// windowsPathRE matches Windows absolute paths like C:\ — pre-compiled to
+	// avoid rebuilding inside the Classify hot path on every call.
+	windowsPathRE = regexp.MustCompile(`^[a-zA-Z]:\\`)
+
+	// codeVarConcatRE detects code variable concatenation expressions like
+	// identifier+identifier inside a token, indicating it is code not a secret.
+	codeVarConcatRE = regexp.MustCompile(`[a-zA-Z0-9_]\+[a-zA-Z0-9_]`)
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -244,16 +252,13 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 	// (e.g. `password := "myRealComplexPassword123!"`). In that case the token
 	// is a value, not an identifier, even if it looks like camelCase.
 	if strings.Contains(sigID, "entropy") || strings.Contains(sigID, "base64") {
-		lowerLineForCamel := strings.ToLower(lineContent)
-		// A credential assignment has a cred word on the LHS AND an assignment operator.
-		isCredAssignment := (strings.Contains(lowerLineForCamel, "password") ||
-			strings.Contains(lowerLineForCamel, "secret") ||
-			strings.Contains(lowerLineForCamel, "token") ||
-			strings.Contains(lowerLineForCamel, "auth") ||
-			strings.Contains(lowerLineForCamel, "key")) &&
-			(strings.Contains(lowerLineForCamel, ":=") || strings.Contains(lowerLineForCamel, " = ") ||
-				strings.Contains(lowerLineForCamel, "= \"") || strings.Contains(lowerLineForCamel, "=\""))
-		if !isCredAssignment {
+		// A credential assignment has a cred word on the LHS AND an explicit
+		// assignment operator. Stricter than the outer isCredAssignment because
+		// we need a quoted value (e.g. password := "value") not just any colon.
+		isCredAssignmentStrict := isCredAssignment &&
+			(strings.Contains(lowerLine, ":=") || strings.Contains(lowerLine, " = ") ||
+				strings.Contains(lowerLine, "= \"") || strings.Contains(lowerLine, "=\""))
+		if !isCredAssignmentStrict {
 			isAllAlphanumeric := true
 			hasUpper := false
 			hasLower := false
@@ -472,7 +477,7 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 		strings.HasPrefix(lowerToken, "/usr/") || strings.HasPrefix(lowerToken, "/tmp/") ||
 		strings.HasPrefix(lowerToken, "/etc/") || strings.HasPrefix(lowerToken, "/var/") ||
 		strings.HasPrefix(lowerToken, "/opt/") || strings.HasPrefix(lowerToken, "/bin/") ||
-		strings.HasPrefix(lowerToken, "/lib/") || regexp.MustCompile(`^[a-zA-Z]:\\`).MatchString(token) {
+		strings.HasPrefix(lowerToken, "/lib/") || windowsPathRE.MatchString(token) {
 		return SafeFilePath
 	}
 	// Env-var based paths: $XDG_DATA_HOME/..., $HOME/..., $USER/..., etc.
@@ -597,7 +602,7 @@ func Classify(filePath, lineContent, token, sigID string) Decision {
 			}
 		}
 		if strings.Contains(token, "+") {
-			if regexp.MustCompile(`[a-zA-Z0-9_]\+[a-zA-Z0-9_]`).MatchString(token) {
+			if codeVarConcatRE.MatchString(token) {
 				return SafeVariableName
 			}
 		}

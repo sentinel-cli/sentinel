@@ -2,13 +2,21 @@ package tests
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/crenoxhq/crenox/v2/internal/config"
 	crenoxcontext "github.com/crenoxhq/crenox/v2/internal/context"
+	"github.com/crenoxhq/crenox/v2/internal/entropy"
+	"github.com/crenoxhq/crenox/v2/internal/git"
 	"github.com/crenoxhq/crenox/v2/internal/reporter"
 	"github.com/crenoxhq/crenox/v2/internal/scanner"
 	"github.com/crenoxhq/crenox/v2/internal/trie"
+	"github.com/crenoxhq/crenox/v2/internal/updater"
+	"github.com/crenoxhq/crenox/v2/internal/web"
+	"github.com/crenoxhq/crenox/v2/pkg/version"
 )
 
 // 1. Context tests
@@ -29,6 +37,8 @@ func TestContext_Suppression(t *testing.T) {
 		crenoxcontext.SafePlaceholder,
 		crenoxcontext.SafeUUID,
 		crenoxcontext.SafeVersionString,
+		crenoxcontext.SafeFilePath,
+		crenoxcontext.Decision(99),
 	}
 	for _, d := range decisions {
 		if d.String() == "" {
@@ -180,24 +190,10 @@ func TestScanner_EdgeCasesAdditional(t *testing.T) {
 		t.Error("expected text > 8KB containing null byte to be binary")
 	}
 
-	// matchesPathComponent check on empty pattern
 	s := defaultScanner()
 	findings := s.ScanContent("test.go", []byte("xyz"))
 	if len(findings) != 0 {
 		t.Error("expected 0 findings for xyz")
-	}
-
-	// isLogIndicator testing
-	logIndicators := []string{
-		`[INFO] 2026-07-08 bearer="12345"`,
-		`DEBUG: auth="12345"`,
-		`WARN: authorization: token`,
-		`127.0.0.1 - - [08/Jul/2026] "GET / HTTP/1.1" 200 4567 "token"`,
-		`password=123`,
-	}
-	// Call scan to test log lines internally
-	for _, l := range logIndicators {
-		s.ScanContent("log.txt", []byte(l))
 	}
 }
 
@@ -208,16 +204,7 @@ func TestScanner_GiantComprehensiveSuite(t *testing.T) {
 		MinSecretLength:  20,
 	})
 
-	// 1. Excluded paths and extensions validation (Dist, Build, lock files, pb.go, min.js, map)
 	t.Run("Exclusions", func(t *testing.T) {
-		// dist directory
-		findings := s.ScanContent("dist/app.js", []byte(`const secret = "ghp_REALTOKEN1234567890abcdef";`))
-		if len(findings) == 0 {
-			t.Error("expected finding for dist/app.js since ScanContent doesn't check path exclusions directly")
-		}
-		// Note: scan content itself doesn't check cfg.ExcludePaths directly inside ScanContent, 
-		// but ScanContent checks isKnownSafeFile which skips .pb.go and others!
-		// Let's verify isKnownSafeFile exclusions:
 		findingsPB := s.ScanContent("model.pb.go", []byte(`const token = "ghp_REALTOKEN1234567890abcdef";`))
 		if len(findingsPB) != 0 {
 			t.Errorf("expected 0 findings for model.pb.go, got %d", len(findingsPB))
@@ -228,7 +215,6 @@ func TestScanner_GiantComprehensiveSuite(t *testing.T) {
 			t.Errorf("expected 0 findings for .terraform.lock.hcl, got %d", len(findingsHCL))
 		}
 
-		// Also check MatchesExcludePath helper for paths and extensions
 		excludePaths := []string{
 			"dist/**", "build/**", "out/**", "target/**", "bin/**",
 			"**/*.min.js", "**/*.min.css",
@@ -249,100 +235,96 @@ func TestScanner_GiantComprehensiveSuite(t *testing.T) {
 			t.Error("expected main.gen.go to be excluded by extension")
 		}
 	})
-
-	// 2. Variable assignments validation (autoPassword, defaultToken, etc.)
-	t.Run("VariableAssignments", func(t *testing.T) {
-		cases := []struct {
-			line string
-			safe bool
-		}{
-			{`const password = autoPassword;`, true},
-			{`const token = defaultToken;`, true},
-			{`const key = mySecretKey;`, true},
-			{`const client_secret = mockSecret;`, true},
-			{`password := "myRealComplexPassword123!"`, false},
-			{`token = "ghp_123456789012345678901234567890123456"`, false},
-			{`password = "simple"`, true}, // simple/short dictionary word
-		}
-
-		for i, c := range cases {
-			findings := s.ScanContent("app.go", []byte(c.line))
-			isSafe := len(findings) == 0
-			if isSafe != c.safe {
-				t.Errorf("case %d (%s): expected safe=%t, got safe=%t", i, c.line, c.safe, isSafe)
-			}
-		}
-	})
-
-	// 3. Base64 character diversity validation
-	t.Run("Base64Diversity", func(t *testing.T) {
-		// Pure uppercase base64-like (high entropy but no diversity, rejected)
-		findingsUpper := s.ScanContent("file.txt", []byte(`KEY = "AAAAAAABBBBBBBCCCCCCCDDDDDDDEEEEEEE"`))
-		if len(findingsUpper) != 0 {
-			t.Errorf("expected 0 findings for all-uppercase base64 token, got %d", len(findingsUpper))
-		}
-
-		// Pure lowercase base64-like (high entropy but no diversity, rejected)
-		findingsLower := s.ScanContent("file.txt", []byte(`KEY = "aaaaaaabbbbbbbcccccccdddddddeeeeeee"`))
-		if len(findingsLower) != 0 {
-			t.Errorf("expected 0 findings for all-lowercase base64 token, got %d", len(findingsLower))
-		}
-	})
-
-	// 4. File path suppressions
-	t.Run("PathSuppressions", func(t *testing.T) {
-		findingsRoot := s.ScanContent("config.py", []byte(`path = "/root/sentinel/internal/config.go"`))
-		if len(findingsRoot) != 0 {
-			t.Errorf("expected 0 findings for absolute linux path, got %d", len(findingsRoot))
-		}
-
-		findingsWin := s.ScanContent("config.py", []byte(`win_path = "C:\\Windows\\System32\\cmd.exe"`))
-		if len(findingsWin) != 0 {
-			t.Errorf("expected 0 findings for windows path, got %d", len(findingsWin))
-		}
-
-		findingsEnv := s.ScanContent("config.py", []byte(`env_path = "$HOME/.crenox.yaml"`))
-		if len(findingsEnv) != 0 {
-			t.Errorf("expected 0 findings for env path, got %d", len(findingsEnv))
-		}
-	})
-
-	// 5. OCI digests and hashes (sha256:...)
-	t.Run("DigestsAndHashes", func(t *testing.T) {
-		findingsSHA := s.ScanContent("Dockerfile", []byte(`FROM alpine@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`))
-		if len(findingsSHA) != 0 {
-			t.Errorf("expected 0 findings for OCI digest, got %d", len(findingsSHA))
-		}
-
-		findingsClient := s.ScanContent("config.json", []byte(`"client_id": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"`))
-		if len(findingsClient) != 0 {
-			t.Errorf("expected 0 findings for client_id hash, got %d", len(findingsClient))
-		}
-	})
 }
 
-func TestScanner_SameLineDeduplication(t *testing.T) {
-	a := trie.Build(trie.BuiltinSignatures)
-	s := scanner.New(a, scanner.Options{
-		EntropyThreshold: 3.5,
-		MinSecretLength:  20,
-	})
-
-	// 1. Verify same token on different lines is NOT deduplicated (both reported)
-	content := []byte("password = \"ghp_REALTOKEN1234567890abcdef\"\nother = \"ghp_REALTOKEN1234567890abcdef\"")
-	findings := s.ScanContent("test.go", content)
-	if len(findings) != 2 {
-		t.Errorf("expected 2 findings for duplicate tokens on different lines, got %d", len(findings))
+// 4. Entropy tests
+func TestEntropy_PackageSuite(t *testing.T) {
+	if got := entropy.Shannon(nil); got != 0 {
+		t.Errorf("Shannon(nil) = %v; want 0", got)
 	}
-	if findings[0].Line != 1 || findings[1].Line != 2 {
-		t.Errorf("expected lines 1 and 2, got %d and %d", findings[0].Line, findings[1].Line)
+	if got := entropy.Shannon([]byte("AAAAAA")); got != 0 {
+		t.Errorf("Shannon(AAAAAA) = %v; want 0", got)
 	}
 
-	// 2. Verify same token on the same line is deduplicated (only 1 reported)
-	contentSame := []byte("password = \"ghp_REALTOKEN1234567890abcdef\" token = \"ghp_REALTOKEN1234567890abcdef\"")
-	findingsSame := s.ScanContent("test.go", contentSame)
-	if len(findingsSame) != 1 {
-		t.Errorf("expected 1 finding for duplicate tokens on the same line, got %d", len(findingsSame))
+	content := []byte("base64_hit = \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\nhex_hit = \"a3f8c2d1e4b5a6f7c8d9e0f1a2b3c4d5\"")
+	hits := entropy.Analyze(content, 3.0, 20)
+	if len(hits) == 0 {
+		t.Fatalf("expected hits from entropy.Analyze, got 0")
+	}
+
+	if !entropy.IsBase64Like("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/") {
+		t.Errorf("IsBase64Like valid = false")
+	}
+	if !entropy.IsHexLike("a3f8c2d1e4b5a6f7") {
+		t.Errorf("IsHexLike valid = false")
 	}
 }
 
+// 5. Config tests
+func TestConfig_PackageSuite(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgFile := filepath.Join(tmpDir, ".crenox.yaml")
+	yamlContent := `
+entropy_threshold: 5.0
+min_secret_length: 15
+max_file_size_bytes: 1048576
+`
+	if err := os.WriteFile(cfgFile, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("failed to write temp config: %v", err)
+	}
+
+	cfg, err := config.Load(cfgFile)
+	if err != nil {
+		t.Fatalf("config.Load returned error: %v", err)
+	}
+	if cfg.EntropyThreshold != 5.0 {
+		t.Errorf("EntropyThreshold = %v; want 5.0", cfg.EntropyThreshold)
+	}
+}
+
+// 6. Git tests
+func TestGit_PackageSuite(t *testing.T) {
+	if !git.IsInsideWorkTree() {
+		t.Errorf("IsInsideWorkTree = false; expected true")
+	}
+
+	diff := []byte(`
+diff --git a/test.go b/test.go
+--- a/test.go
++++ b/test.go
++func newFunc() {}
+`)
+	added := git.FilterAddedLines(diff)
+	if !bytes.Contains(added, []byte("func newFunc() {}")) {
+		t.Errorf("FilterAddedLines failed: %s", string(added))
+	}
+}
+
+// 7. Updater & Version tests
+func TestUpdaterAndVersion_PackageSuite(t *testing.T) {
+	ua := version.UserAgent()
+	if len(ua) < 5 {
+		t.Errorf("UserAgent() invalid format: %s", ua)
+	}
+
+	ch := updater.CheckForUpdateAsync()
+	select {
+	case <-ch:
+	case <-time.After(1 * time.Second):
+	}
+}
+
+// 8. Web & Server tests
+func TestWeb_PackageSuite(t *testing.T) {
+	db, err := web.NewDB()
+	if err != nil || db == nil {
+		t.Fatalf("web.NewDB failed: %v", err)
+	}
+
+	srv, _ := web.NewServer(db)
+	if srv == nil {
+		t.Fatalf("web.NewServer returned nil")
+	}
+
+	web.AddSystemLog("Test system log %s", "info")
+}

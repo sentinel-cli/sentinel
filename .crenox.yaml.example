@@ -137,7 +137,7 @@ fail_fast: false
 verbose: false
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Automatic False-Positive Suppressions (v2.1.3+, no config needed)
+# Automatic False-Positive Suppressions (v2.1.4+, no config needed)
 # ─────────────────────────────────────────────────────────────────────────────
 # The following are filtered automatically without any configuration:
 #
